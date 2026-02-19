@@ -560,6 +560,57 @@ def carregar_dados_refugo():
     except Exception:
         return None
 
+def obter_quadrante_1_motivos():
+    """Extrai 1º quadrante: Colunas R-AB da aba Lançamentos (Motivos)."""
+    path, _ = buscar_arquivo_cronograma(PASTA_CRONOGRAMA)
+    if not path:
+        return {"Usinagem": False, "Inspeção": False, "Desenho": False,
+                "Programação CNC": False, "Produção": False, "Comercial": False,
+                "PCP": False, "RETRABALHO OUTROS DP": False, "Retrabalho": False,
+                "Morta outros": False, "Morta usin.": False}
+    try:
+        df = pd.read_excel(path, sheet_name='Lançamentos', nrows=0)
+        cols = df.columns[17:28].tolist() if len(df.columns) >= 28 else []
+        return {col: False for col in cols} if cols else {"Usinagem": False, "Inspeção": False}
+    except:
+        return {"Usinagem": False, "Inspeção": False}
+
+def obter_quadrante_2_colunasQW():
+    """Extrai 2º quadrante: Colunas Q-W da aba PRODUTOS DE REFUGO."""
+    path, _ = buscar_arquivo_cronograma(PASTA_CRONOGRAMA)
+    if not path:
+        return {}
+    try:
+        df = pd.read_excel(path, sheet_name='PRODUTOS DE REFUGO', header=1, nrows=1)
+        cols = df.columns[16:23] if len(df.columns) >= 23 else []
+        return {col: "" for col in cols}
+    except:
+        return {}
+
+def obter_quadrante_3_colunasXAF():
+    """Extrai 3º quadrante: Colunas X-AF da aba PRODUTOS DE REFUGO."""
+    path, _ = buscar_arquivo_cronograma(PASTA_CRONOGRAMA)
+    if not path:
+        return {}
+    try:
+        df = pd.read_excel(path, sheet_name='PRODUTOS DE REFUGO', header=1, nrows=1)
+        cols = df.columns[23:32] if len(df.columns) >= 32 else []
+        return {col: "" for col in cols}
+    except:
+        return {}
+
+def obter_quadrante_4_colunasFP():
+    """Extrai 4º quadrante: Colunas F-P da aba PRODUTOS DE REFUGO."""
+    path, _ = buscar_arquivo_cronograma(PASTA_CRONOGRAMA)
+    if not path:
+        return {}
+    try:
+        df = pd.read_excel(path, sheet_name='PRODUTOS DE REFUGO', header=1, nrows=1)
+        cols = df.columns[5:16] if len(df.columns) >= 16 else []
+        return {col: "" for col in cols}
+    except:
+        return {}
+
 # ==========================================
 # INTERFACE - NAVEGAÇÃO NO TOPO
 # ==========================================
@@ -1119,38 +1170,60 @@ elif pagina == "🔍 Inspeção":
                     st.info(f"Sobra sugerida: {med_sobra}mm")
                     sobra = st.number_input("Medida Real Sobra (mm)", value=med_sobra)
                 
-                c_falha = st.columns(3)
-                motivos['Usinagem'] = c_falha[0].checkbox("Usinagem")
-                motivos['Medida'] = c_falha[1].checkbox("Medida ñ conf.")
-                motivos['Outros'] = c_falha[2].checkbox("Outros")
-                
                 obs_insp = st.text_area("Avaria (Inspetor):", placeholder="O que foi encontrado...")
                 obs_colab = st.text_area("Causa (Colaborador):", placeholder="Justificativa...")
 
-                # mostrar escopo parecido com página de análise
-                with st.expander("📊 Escopo de Refugo", expanded=False):
-                    quad1, quad2, quad3, quad4 = st.columns(4)
-                    with quad1:
-                        st.markdown("**🎯 Informações**")
-                        st.write(f"Tipo: {tipo_ref}")
-                        st.write(f"Em análise: {'Sim' if analise else 'Não'}")
-                        st.write(f"Máquina: {maq_ref}")
-                        st.write(f"Operador: {oper_ref}")
-                    with quad2:
-                        st.markdown("**📋 Motivos Selecionados**")
-                        st.write(f"Usinagem: {'✅' if motivos.get('Usinagem') else '⬜'}")
-                        st.write(f"Medida: {'✅' if motivos.get('Medida') else '⬜'}")
-                        st.write(f"Outros: {'✅' if motivos.get('Outros') else '⬜'}")
-                    with quad3:
-                        st.markdown("**🔍 Observações**")
-                        st.write(obs_insp or "—")
-                        st.write(obs_colab or "—")
-                    with quad4:
-                        st.markdown("**📊 Quantidades**")
-                        if "MORTE" in str(tipo_ref):
-                            st.write(f"Sobra real: {sobra} mm")
-                        st.write(f"Qtd reprovada: {qtd_ref}")
-                        st.write(f"Qtd total: {qtd_padrao}")
+                # MOSTRAR 4 QUADRANTES DE REFUGO
+                st.markdown("---")
+                st.markdown("### 📊 4 Quadrantes de Refugo")
+                
+                quad1, quad2, quad3, quad4 = st.columns(4)
+                
+                # 1º QUADRANTE: Motivos (R-AB da aba Lançamentos)
+                with quad1:
+                    st.markdown("**🎯 1º - Motivos**")
+                    path, _ = buscar_arquivo_cronograma(PASTA_CRONOGRAMA)
+                    if path:
+                        try:
+                            df_lanc = pd.read_excel(path, sheet_name='Lançamentos', nrows=0)
+                            cols_motivos = df_lanc.columns[17:28].tolist() if len(df_lanc.columns) >= 28 else []
+                            for col in cols_motivos:
+                                motivos[col] = st.checkbox(col, key=f"mot_{col}")
+                        except:
+                            st.write("Erro ao carregar motivos")
+                    else:
+                        st.write("Arquivo não encontrado")
+                
+                # 2º QUADRANTE: Colunas Q-W da aba PRODUTOS DE REFUGO
+                with quad2:
+                    st.markdown("**📋 2º - Análise 1**")
+                    df_refugo = carregar_dados_refugo()
+                    if df_refugo is not None and len(df_refugo.columns) >= 23:
+                        cols_q_w = df_refugo.columns[16:23]
+                        for col in cols_q_w:
+                            val = st.text_input(col, key=f"qw_{col}")
+                    else:
+                        st.write("Dados não disponíveis")
+                
+                # 3º QUADRANTE: Colunas X-AF da aba PRODUTOS DE REFUGO
+                with quad3:
+                    st.markdown("**📋 3º - Análise 2**")
+                    if df_refugo is not None and len(df_refugo.columns) >= 32:
+                        cols_x_af = df_refugo.columns[23:32]
+                        for col in cols_x_af:
+                            val = st.text_input(col, key=f"xaf_{col}")
+                    else:
+                        st.write("Dados não disponíveis")
+                
+                # 4º QUADRANTE: Colunas F-P da aba PRODUTOS DE REFUGO
+                with quad4:
+                    st.markdown("**📋 4º - Dados**")
+                    if df_refugo is not None and len(df_refugo.columns) >= 16:
+                        cols_f_p = df_refugo.columns[5:16]
+                        for col in cols_f_p:
+                            val = st.text_input(col, key=f"fp_{col}")
+                    else:
+                        st.write("Dados não disponíveis")
 
             # Botão para peça única (single-peça) - colocado ao lado do header
             if not eh_multiplo:
@@ -1299,7 +1372,7 @@ elif pagina == "🔍 Inspeção":
 # ==========================================
 elif pagina == "♻️ Análise Refugo":
     st.title("♻️ Análise de Ocorrências de Refugo")
-    st.markdown("Análise detalhada de refugos com 4 quadrantes de informação")
+    st.markdown("Análise detalhada de refugos com 4 quadrantes: Motivos | Análise 1 | Análise 2 | Dados")
     st.markdown("---")
     
     # Carregar dados de refugo
@@ -1308,14 +1381,6 @@ elif pagina == "♻️ Análise Refugo":
     if df_refugo is None or df_refugo.empty:
         st.warning("⚠️ Dados de refugo não encontrados. Verifique se o arquivo está carregado.")
     else:
-        # gráfico de motivos
-        motivos_cols = ['Usinagem', 'Inspeção', 'Desenho', 'Programação CNC', 'Produção',
-                        'Gerar op - instrução para corte errado', 'PCP']
-        if any(col in df_refugo.columns for col in motivos_cols):
-            st.markdown("### 📈 Resumo de Motivos de Refugo")
-            cont = (df_refugo[motivos_cols] == 'X').sum()
-            st.bar_chart(cont)
-        
         # Filtros
         col_filtro1, col_filtro2 = st.columns(2)
         
@@ -1367,34 +1432,32 @@ elif pagina == "♻️ Análise Refugo":
                     # ============================================================
                     quad1, quad2, quad3, quad4 = st.columns(4)
                     
-                    # 1º QUADRANTE: MOTIVOS (Usinagem, Inspeção, etc)
+                    # 1º QUADRANTE: MOTIVOS (R-AB da aba Lançamentos via header de PRODUTOS DE REFUGO Q-W)
                     with quad1:
-                        st.markdown("### 🎯 **1º | Motivo**")
-                        motivos_cols = ['Usinagem', 'Inspeção', 'Desenho', 
-                                       'Programação CNC', 'Produção', 'PCP']
-                        for col in motivos_cols:
+                        st.markdown("### 🎯 **1º Quadrante | Motivos**")
+                        motivos_q1 = ['Usinagem', 'Inspeção', 'Desenho', 'Programação CNC', 
+                                     'Produção', 'Gerar op - instrução para corte errado', 'PCP']
+                        for col in motivos_q1:
                             if col in row.index:
                                 val = row[col]
                                 status = "✅" if val == "X" else "⬜"
                                 st.write(f"{status} {col}")
                     
-                    # 2º QUADRANTE: Classificação Departamental
+                    # 2º QUADRANTE: Q-W (Usinagem, Inspeção, etc da aba PRODUTOS)
                     with quad2:
-                        st.markdown("### 📋 **2º | Depto**")
-                        depto_cols = ['Usinagem', 'Inspeção', 'Desenho', 
-                                     'Programação CNC', 'Produção', 
-                                     'Gerar op - instrução para corte errado', 'PCP']
-                        for col in depto_cols:
+                        st.markdown("### 📋 **2º Quadrante | Análise 1 (Q-W)**")
+                        quad2_cols = ['Usinagem', 'Inspeção', 'Desenho', 'Programação CNC', 
+                                     'Produção', 'Gerar op - instrução para corte errado', 'PCP']
+                        for col in quad2_cols:
                             if col in row.index:
                                 val = row[col]
                                 status = "✅" if val == "X" else "⬜"
-                                label = col.replace('Gerar op - instrução para corte errado', 'Gerar OP')
-                                st.write(f"{status} {label[:20]}")
+                                st.write(f"{status} {col[:25]}")
                     
-                    # 3º QUADRANTE: CAUSAS (Medida, Acabamento, etc)
+                    # 3º QUADRANTE: X-AF (Medida, Acabamento, etc)
                     with quad3:
-                        st.markdown("### 🔍 **3º | Causa**")
-                        causa_cols = ['Medida não conforme o projeto',
+                        st.markdown("### 🔍 **3º Quadrante | Análise 2 (X-AF)**")
+                        quad3_cols = ['Medida não conforme o projeto',
                                      'Usinagem não conforme o projeto',
                                      'Acabamento Ruim',
                                      'Peça fora de concentricidade',
@@ -1403,35 +1466,40 @@ elif pagina == "♻️ Análise Refugo":
                                      'Rebarba',
                                      'Faltou usinar a chaveta',
                                      'Desenho Errado']
-                        for col in causa_cols:
+                        for col in quad3_cols:
                             if col in row.index:
                                 val = row[col]
                                 status = "✅" if val == "X" else "⬜"
-                                label = col.replace('Peça ', 'P. ').replace(' não conforme', ' n/conf.').replace('Faltou usinar a', 'Falt. usin.')
-                                st.write(f"{status} {label[:25]}")
+                                label = col.replace('não conforme', 'n/conf').replace('Peça ', 'P. ')
+                                st.write(f"{status} {label[:28]}")
                     
-                    # 4º QUADRANTE: QUANTIDADES E STATUS
+                    # 4º QUADRANTE: F-P (Máquina, Fuso, Castanha, etc)
                     with quad4:
-                        st.markdown("### 📊 **4º | Dados**")
-                        qtd_cols = [
+                        st.markdown("### 📊 **4º Quadrante | Dados (F-P)**")
+                        quad4_cols = [
                             ('Maquina', 'Máquina'),
+                            ('Fuso', 'Fuso'),
+                            ('Castanha', 'Castanha'),
+                            ('Guia', 'Guia'),
+                            ('Bloco', 'Bloco'),
                             ('QTD. DA OP.', 'QTD OP'),
-                            ('QTD. PEÇAS CHEGOU', 'Peças Chegou'),
-                            ('QNT. REPROVADO', 'Reprovado'),
-                            ('QNT. RETRABALHADO', 'Retrabalhado'),
-                            ('QNT. USINADO NOVAMENTE', 'Usinado Novo'),
+                            ('QTD. PEÇAS CHEGOU', 'Peças'),
+                            ('QNT. REPROVADO', 'Reprov.'),
+                            ('QNT. RETRABALHADO', 'Retrab.'),
+                            ('QNT. USINADO NOVAMENTE', 'Usin. Novo'),
                             ('APROVADO', 'Aprovado'),
                         ]
-                        for col_name, label in qtd_cols:
+                        for col_name, label in quad4_cols:
                             if col_name in row.index:
                                 val = row[col_name]
-                                st.write(f"• {label}: **{val if val else '—'}**")
+                                st.write(f"• {label}: {val if val else '—'}")
                     
                     # Observações finais
                     st.markdown("---")
                     obs = row.get('Observação', '')
                     if obs:
-                        st.markdown(f"**📝 Observações:**  \n{obs}")
+                        st.markdown(f"📝 **Observações:**  \n{obs}")
+
 
 
 
