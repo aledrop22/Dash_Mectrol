@@ -566,8 +566,7 @@ def obter_quadrante_1_motivos():
     if not path:
         return {"Usinagem": False, "Inspeção": False, "Desenho": False,
                 "Programação CNC": False, "Produção": False, "Comercial": False,
-                "PCP": False, "RETRABALHO OUTROS DP": False, "Retrabalho": False,
-                "Morta outros": False, "Morta usin.": False}
+                "PCP": False, "RETRABALHO OUTROS DP": False}
     try:
         df = pd.read_excel(path, sheet_name='Lançamentos', nrows=0)
         cols = df.columns[17:28].tolist() if len(df.columns) >= 28 else []
@@ -1173,59 +1172,48 @@ elif pagina == "🔍 Inspeção":
                 obs_insp = st.text_area("Avaria (Inspetor):", placeholder="O que foi encontrado...")
                 obs_colab = st.text_area("Causa (Colaborador):", placeholder="Justificativa...")
 
-                # MOSTRAR 4 QUADRANTES DE REFUGO
+                # MOSTRAR 2 QUADRANTES DE REFUGO
                 st.markdown("---")
-                st.markdown("### 📊 4 Quadrantes de Refugo")
+                st.markdown("### 📊 Análise de Refugo")
                 
-                quad1, quad2, quad3, quad4 = st.columns(4)
+                quad1, quad3 = st.columns(2)
                 
-                # 1º QUADRANTE: Motivos (R-AB da aba Lançamentos)
+                # 1º QUADRANTE: Motivos (R-U da aba Lançamentos, removendo as 3 últimas)
                 with quad1:
-                    st.markdown("**🎯 1º - Motivos**")
-                    path, _ = buscar_arquivo_cronograma(PASTA_CRONOGRAMA)
-                    if path:
-                        try:
-                            df_lanc = pd.read_excel(path, sheet_name='Lançamentos', nrows=0)
-                            cols_motivos = df_lanc.columns[17:28].tolist() if len(df_lanc.columns) >= 28 else []
+                    st.markdown("**🎯 1º Quadrante - Motivos**")
+                    try:
+                        arquivo_refugo = '3.1_DASH_MENSAL_01_26.xlsx'
+                        if os.path.exists(arquivo_refugo):
+                            df_lanc = pd.read_excel(arquivo_refugo, sheet_name='Lançamentos', nrows=0)
+                            # Colunas 17-24 (R-U): Usinagem, Inspeção, Desenho, Programação CNC, 
+                            # Produção, Comercial, PCP, RETRABALHO OUTROS DP
+                            # Removendo 25-27 (Retrabalho, Morta outros, Morta usin.)
+                            cols_motivos = df_lanc.columns[17:25].tolist() if len(df_lanc.columns) >= 25 else []
                             for col in cols_motivos:
                                 motivos[col] = st.checkbox(col, key=f"mot_{col}")
-                        except:
-                            st.write("Erro ao carregar motivos")
-                    else:
-                        st.write("Arquivo não encontrado")
+                        else:
+                            st.write("Arquivo 3.1_DASH_MENSAL não encontrado")
+                    except Exception as e:
+                        st.write(f"Erro: {str(e)}")
                 
-                # 2º QUADRANTE: Colunas Q-W da aba PRODUTOS DE REFUGO
-                with quad2:
-                    st.markdown("**📋 2º - Análise 1**")
-                    df_refugo = carregar_dados_refugo()
-                    if df_refugo is not None and len(df_refugo.columns) >= 23:
-                        cols_q_w = df_refugo.columns[16:23]
-                        for col in cols_q_w:
-                            val = st.text_input(col, key=f"qw_{col}")
-                    else:
-                        st.write("Dados não disponíveis")
-                
-                # 3º QUADRANTE: Colunas X-AF da aba PRODUTOS DE REFUGO
+                # 3º QUADRANTE: Colunas X-AF da aba PRODUTOS DE REFUGO (Causas)
                 with quad3:
-                    st.markdown("**📋 3º - Análise 2**")
-                    if df_refugo is not None and len(df_refugo.columns) >= 32:
-                        cols_x_af = df_refugo.columns[23:32]
-                        for col in cols_x_af:
-                            val = st.text_input(col, key=f"xaf_{col}")
-                    else:
-                        st.write("Dados não disponíveis")
-                
-                # 4º QUADRANTE: Colunas F-P da aba PRODUTOS DE REFUGO
-                with quad4:
-                    st.markdown("**📋 4º - Dados**")
-                    if df_refugo is not None and len(df_refugo.columns) >= 16:
-                        cols_f_p = df_refugo.columns[5:16]
-                        for col in cols_f_p:
-                            val = st.text_input(col, key=f"fp_{col}")
-                    else:
-                        st.write("Dados não disponíveis")
+                    st.markdown("**🔍 3º Quadrante - Causas**")
+                    try:
+                        if os.path.exists('3.1_DASH_MENSAL_01_26.xlsx'):
+                            df_refugo = pd.read_excel('3.1_DASH_MENSAL_01_26.xlsx', 
+                                                     sheet_name='PRODUTOS DE REFUGO', header=1, nrows=0)
+                            if len(df_refugo.columns) >= 32:
+                                cols_x_af = df_refugo.columns[23:32]
+                                for col in cols_x_af:
+                                    st.checkbox(col, key=f"xaf_{col}")
+                        else:
+                            st.write("Arquivo não encontrado")
+                    except Exception as e:
+                        st.write(f"Erro: {str(e)}")
 
             # Botão para peça única (single-peça) - colocado ao lado do header
+            if not eh_multiplo:            # Botão para peça única (single-peça) - colocado ao lado do header
             if not eh_multiplo:
                 pc1, pc2 = st.columns([3, 2])
                 pc1.write("")
@@ -1372,8 +1360,76 @@ elif pagina == "🔍 Inspeção":
 # ==========================================
 elif pagina == "♻️ Análise Refugo":
     st.title("♻️ Análise de Ocorrências de Refugo")
-    st.markdown("Análise detalhada de refugos com 4 quadrantes: Motivos | Análise 1 | Análise 2 | Dados")
+    st.markdown("Análise detalhada dos refugos com indicadores e dados de cada ocorrência")
     st.markdown("---")
+    
+    # Carregar indicadores das abas CONFIGURAÇÃO e Indicadores Usinagem
+    try:
+        arquivo_dash = '3.1_DASH_MENSAL_01_26.xlsx'
+        if os.path.exists(arquivo_dash):
+            # ABA CONFIGURAÇÃO - linha 1 tem os totais
+            df_config = pd.read_excel(arquivo_dash, sheet_name='CONFIGURAÇÃO ', header=0)
+            
+            # ABA Indicadores Usinagem
+            df_indic = pd.read_excel(arquivo_dash, sheet_name='Indicadores Usinagem')
+            
+            # Mostrar indicadores principais
+            st.markdown("### 📊 Indicadores do Mês")
+            
+            col_ind1, col_ind2, col_ind3, col_ind4, col_ind5 = st.columns(5)
+            
+            with col_ind1:
+                aprovado = df_config.iloc[1, 1] if len(df_config) > 1 else 0
+                st.metric("✅ Aprovado", f"{aprovado}")
+            
+            with col_ind2:
+                reprovado = df_config.iloc[1, 2] if len(df_config) > 1 else 0
+                st.metric("❌ Reprovado", f"{reprovado}")
+            
+            with col_ind3:
+                retrabalho_total = df_config.iloc[1, 17] if len(df_config) > 1 and len(df_config.columns) > 17 else 0
+                st.metric("🔧 Retrabalho", f"{retrabalho_total}")
+            
+            with col_ind4:
+                morta_total = df_config.iloc[1, 16] if len(df_config) > 1 and len(df_config.columns) > 16 else 0
+                st.metric("💀 Morta", f"{morta_total}")
+            
+            with col_ind5:
+                pecas_produzidas = df_indic.iloc[3, 1] if len(df_indic) > 3 else 0
+                st.metric("📦 Produzidas", f"{pecas_produzidas}")
+            
+            st.markdown("---")
+            
+            # Detalhamento por departamento
+            st.markdown("### 📋 Refugo por Departamento")
+            col_dep1, col_dep2, col_dep3, col_dep4 = st.columns(4)
+            
+            with col_dep1:
+                usinagem = df_config.iloc[1, 3] if len(df_config) > 1 and len(df_config.columns) > 3 else 0
+                inspecao = df_config.iloc[1, 4] if len(df_config) > 1 and len(df_config.columns) > 4 else 0
+                st.write(f"**⚙️ Usinagem:** {usinagem}")
+                st.write(f"**🔍 Inspeção:** {inspecao}")
+            
+            with col_dep2:
+                desenho = df_config.iloc[1, 5] if len(df_config) > 1 and len(df_config.columns) > 5 else 0
+                prog_cnc = df_config.iloc[1, 6] if len(df_config) > 1 and len(df_config.columns) > 6 else 0
+                st.write(f"**📐 Desenho:** {desenho}")
+                st.write(f"**💻 Prog. CNC:** {prog_cnc}")
+            
+            with col_dep3:
+                producao = df_config.iloc[1, 7] if len(df_config) > 1 and len(df_config.columns) > 7 else 0
+                comercial = df_config.iloc[1, 8] if len(df_config) > 1 and len(df_config.columns) > 8 else 0
+                st.write(f"**🏭 Produção:** {producao}")
+                st.write(f"**💼 Comercial:** {comercial}")
+            
+            with col_dep4:
+                pcp = df_config.iloc[1, 9] if len(df_config) > 1 and len(df_config.columns) > 9 else 0
+                st.write(f"**📊 PCP:** {pcp}")
+            
+            st.markdown("---")
+            
+    except Exception as e:
+        st.warning(f"⚠️ Não foi possível carregar indicadores: {str(e)}")
     
     # Carregar dados de refugo
     df_refugo = carregar_dados_refugo()
@@ -1447,7 +1503,7 @@ elif pagina == "♻️ Análise Refugo":
                     with quad2:
                         st.markdown("### 📋 **2º Quadrante | Análise 1 (Q-W)**")
                         quad2_cols = ['Usinagem', 'Inspeção', 'Desenho', 'Programação CNC', 
-                                     'Produção', 'Gerar op - instrução para corte errado', 'PCP']
+                                     'Produção', 'Gerar OP - Instrução para corte errado', 'PCP']
                         for col in quad2_cols:
                             if col in row.index:
                                 val = row[col]
@@ -1459,13 +1515,13 @@ elif pagina == "♻️ Análise Refugo":
                         st.markdown("### 🔍 **3º Quadrante | Análise 2 (X-AF)**")
                         quad3_cols = ['Medida não conforme o projeto',
                                      'Usinagem não conforme o projeto',
-                                     'Acabamento Ruim',
+                                     'Acabamento ruim',
                                      'Peça fora de concentricidade',
                                      'Peça craterizada',
-                                     'Estética (aparência)',
+                                     'Estética (Aparência)',
                                      'Rebarba',
                                      'Faltou usinar a chaveta',
-                                     'Desenho Errado']
+                                     'Desenho errado']
                         for col in quad3_cols:
                             if col in row.index:
                                 val = row[col]
