@@ -28,6 +28,23 @@ NOME_DB_MES = f"Banco_Dados_Qualidade_{mes_ano_atual}.xlsx"
 ARQUIVO_HISTORICO = os.path.join(PASTA_DB, NOME_DB_MES)
 ARQUIVO_MODELO_RNC = 'USAR MODELO RNC.xlsx' 
 
+COLUNAS_BANCO_PADRAO = [
+    'Data Registro', 'Hora Saída', 'Inspetor', 'Inspetor Responsável', 'Data Chegada',
+    'Hora Entrada', 'Data Produção', 'OP', 'Cliente', 'Descrição', 'Transportadora',
+    'Pedido', 'Codigo', 'Qtd Total', 'Peças produzidas', 'Aprovado', 'Reprovado',
+    'Tipo Refugo', 'Sobra Medida 1', 'Sobra Medida 2', 'Maquina', 'Operador',
+    'Cód. Castanha', 'Bat. Esq', 'Bat. Dir', 'Emp. Esq', 'Emp. Dir', 'Obs', 'Status',
+    'Aprovação Especial', 'RNC Fuso', 'RNC Castanha', 'RNC Guia', 'RNC Bloco',
+    'Fuso Retificado', 'Fuso Retificado Adaptado',
+    'Castanha Retificada Adaptada', 'Fuso Laminado', 'Fuso Laminado PRECISÃO',
+    'Fuso Laminado Adaptado', 'Castanha Laminada Adaptada', 'Guia', 'Bloco',
+    'Usinagem', 'Inspeção', 'Desenho', 'Programação CNC', 'Produção', 'Gerar op',
+    'PCP', 'Medida não conforme', 'Usinagem não conforme', 'Acabamento Ruim',
+    'Concentricidade', 'Craterizada', 'Estética', 'Rebarba', 'Faltou Chaveta',
+    'Desenho Errado', 'Código Castanha', 'Motivo_Usinagem', 'Motivo_Medida',
+    'Motivo_Outros'
+]
+
 # --- SESSÃO ---
 if 'pagina' not in st.session_state: st.session_state.pagina = "🏠 Home"
 if 'tipo_relogio_key' not in st.session_state: st.session_state.tipo_relogio_key = "Centesimal"
@@ -50,6 +67,17 @@ st.markdown("""
     .main .block-container { padding-top: 1rem !important; }
     .stMarkdown, .stSelectbox label, .stTextInput label, .stNumberInput label, .stDateInput label, .stTextArea label, .stRadio label { font-size: 16px !important; }
     div.stButton > button:first-child { font-weight: bold; width: 100%; }
+    .blink-missing {
+        color: #b00020;
+        font-weight: 600;
+        margin: 4px 0 6px 0;
+        animation: blinkFade 1.6s ease-in-out infinite;
+    }
+    @keyframes blinkFade {
+        0% { opacity: 1; }
+        50% { opacity: 0.35; }
+        100% { opacity: 1; }
+    }
     
     /* CARD GRANDE (ESQUERDA) */
     .total-card {
@@ -180,20 +208,32 @@ def converter_medida(key_name):
         # Silenciosamente ignora erros de conversão
         pass
 
-def formatar_hora_automatica():
-    if "hora_entrada_key" in st.session_state:
-        val = st.session_state.hora_entrada_key
+def formatar_hora_automatica(key_hora=None):
+    """Formata automaticamente entrada de hora (753 -> 07:53, 15 -> 15:00, etc)"""
+    # Se não especificou a key, tentar detectar
+    if key_hora is None:
+        if "hora_entrada_key" in st.session_state:
+            key_hora = "hora_entrada_key"
+        else:
+            # Procurar keys de hora para multi-peça
+            for key in st.session_state.keys():
+                if isinstance(key, str) and key.startswith("hora_entrada_") and key != "hora_entrada_key":
+                    key_hora = key
+                    break
+    
+    if key_hora and key_hora in st.session_state:
+        val = st.session_state[key_hora]
         limpo = ''.join(filter(str.isdigit, str(val)))
         if len(limpo) in [1, 2]:
             try:
                 h = int(limpo)
-                if 0 <= h <= 23: st.session_state.hora_entrada_key = f"{h:02d}:00 - {'Manhã' if h < 12 else 'Tarde' if h < 18 else 'Noite'}"
+                if 0 <= h <= 23: st.session_state[key_hora] = f"{h:02d}:00 - {'Manhã' if h < 12 else 'Tarde' if h < 18 else 'Noite'}"
             except: pass
         elif len(limpo) == 3: limpo = "0" + limpo
         if len(limpo) == 4:
             try:
                 h = int(limpo[:2]); m = int(limpo[2:])
-                if 0 <= h <= 23 and 0 <= m <= 59: st.session_state.hora_entrada_key = f"{h:02d}:{m:02d} - {'Manhã' if h < 12 else 'Tarde' if h < 18 else 'Noite'}"
+                if 0 <= h <= 23 and 0 <= m <= 59: st.session_state[key_hora] = f"{h:02d}:{m:02d} - {'Manhã' if h < 12 else 'Tarde' if h < 18 else 'Noite'}"
             except: pass
 
 def definir_prioridade(transportadora):
@@ -539,12 +579,113 @@ def carregar_dados_historico():
     """Carrega histórico de inspeção com tratamento de erros."""
     if os.path.exists(ARQUIVO_HISTORICO):
         try:
-            df = pd.read_excel(ARQUIVO_HISTORICO)
-            df['Data Registro'] = pd.to_datetime(df['Data Registro'], format='%d/%m/%Y', errors='coerce')
+            try:
+                df_conf = pd.read_excel(ARQUIVO_HISTORICO, sheet_name="CONFORME")
+            except Exception:
+                df_conf = pd.DataFrame()
+            try:
+                df_nao = pd.read_excel(ARQUIVO_HISTORICO, sheet_name="NAO CONFORME")
+            except Exception:
+                df_nao = pd.DataFrame()
+            if not df_conf.empty or not df_nao.empty:
+                df = pd.concat([df_conf, df_nao], ignore_index=True)
+            else:
+                df = pd.read_excel(ARQUIVO_HISTORICO)
+            if 'Data Registro' in df.columns:
+                df['Data Registro'] = pd.to_datetime(df['Data Registro'], format='%d/%m/%Y', errors='coerce')
             return df
         except (FileNotFoundError, ValueError, KeyError):
             return pd.DataFrame()
     return pd.DataFrame()
+
+def obter_colunas_banco():
+    """Retorna as colunas oficiais do banco mensal."""
+    if os.path.exists(ARQUIVO_HISTORICO):
+        try:
+            return pd.read_excel(ARQUIVO_HISTORICO, nrows=0).columns.tolist()
+        except Exception:
+            pass
+    return COLUNAS_BANCO_PADRAO
+
+def normalizar_df_banco(df):
+    """Garante todas as colunas e preenche vazios com string vazia."""
+    cols_base = obter_colunas_banco()
+    extras = [c for c in df.columns if c not in cols_base]
+    colunas = cols_base + extras
+    for col in cols_base:
+        if col not in df.columns:
+            df[col] = ""
+    df = df[colunas]
+    return df.fillna("")
+
+def normalizar_arquivo_banco():
+    """Normaliza o arquivo do banco mensal existente."""
+    try:
+        if os.path.exists(ARQUIVO_HISTORICO):
+            try:
+                df_conf = pd.read_excel(ARQUIVO_HISTORICO, sheet_name="CONFORME")
+            except Exception:
+                df_conf = pd.DataFrame()
+            try:
+                df_nao = pd.read_excel(ARQUIVO_HISTORICO, sheet_name="NAO CONFORME")
+            except Exception:
+                df_nao = pd.DataFrame()
+            if df_conf.empty and df_nao.empty:
+                df_conf = pd.read_excel(ARQUIVO_HISTORICO)
+        else:
+            df_conf = pd.DataFrame(columns=COLUNAS_BANCO_PADRAO)
+            df_nao = pd.DataFrame(columns=COLUNAS_BANCO_PADRAO)
+
+        df_conf = normalizar_df_banco(df_conf)
+        df_nao = normalizar_df_banco(df_nao)
+        with pd.ExcelWriter(ARQUIVO_HISTORICO, engine='openpyxl') as writer:
+            df_conf.to_excel(writer, sheet_name="CONFORME", index=False)
+            df_nao.to_excel(writer, sheet_name="NAO CONFORME", index=False)
+    except Exception:
+        pass
+
+def salvar_no_banco(df_novo, nao_conforme=False):
+    """Salva no banco mensal, separando em abas CONFORME e NAO CONFORME."""
+    df_novo = normalizar_df_banco(df_novo)
+    if os.path.exists(ARQUIVO_HISTORICO):
+        try:
+            try:
+                df_conf = pd.read_excel(ARQUIVO_HISTORICO, sheet_name="CONFORME")
+            except Exception:
+                df_conf = pd.DataFrame()
+            try:
+                df_nao = pd.read_excel(ARQUIVO_HISTORICO, sheet_name="NAO CONFORME")
+            except Exception:
+                df_nao = pd.DataFrame()
+            if df_conf.empty and df_nao.empty:
+                df_conf = pd.read_excel(ARQUIVO_HISTORICO)
+            df_conf = normalizar_df_banco(df_conf)
+            df_nao = normalizar_df_banco(df_nao)
+        except Exception:
+            df_conf = pd.DataFrame()
+            df_nao = pd.DataFrame()
+    else:
+        df_conf = pd.DataFrame()
+        df_nao = pd.DataFrame()
+
+    if nao_conforme:
+        df_final_nao = pd.concat([df_nao, df_novo], ignore_index=True)
+        df_final_conf = df_conf
+    else:
+        df_final_conf = pd.concat([df_conf, df_novo], ignore_index=True)
+        df_final_nao = df_nao
+
+    df_final_conf = normalizar_df_banco(df_final_conf)
+    df_final_nao = normalizar_df_banco(df_final_nao)
+
+    with pd.ExcelWriter(ARQUIVO_HISTORICO, engine='openpyxl') as writer:
+        df_final_conf.to_excel(writer, sheet_name="CONFORME", index=False)
+        df_final_nao.to_excel(writer, sheet_name="NAO CONFORME", index=False)
+
+def aviso_campo_faltante(chave, texto):
+    """Exibe um aviso visual leve para campos obrigatorios ausentes."""
+    if chave in st.session_state.get('campos_faltantes', set()):
+        st.markdown(f"<div class='blink-missing'>⚠ {texto}</div>", unsafe_allow_html=True)
 
 def carregar_dados_refugo():
     """Carrega dados de refugo da aba PRODUTOS DE REFUGO do cronograma."""
@@ -610,6 +751,10 @@ def obter_quadrante_4_colunasFP():
     except:
         return {}
 
+if 'banco_normalizado' not in st.session_state:
+    normalizar_arquivo_banco()
+    st.session_state.banco_normalizado = True
+
 # ==========================================
 # INTERFACE - NAVEGAÇÃO NO TOPO
 # ==========================================
@@ -631,7 +776,8 @@ pagina = st.session_state.pagina
 # SIDEBAR - FILTROS
 # ==========================================
 with st.sidebar:
-    st.markdown("### 🔧 Filtros")
+    st.image("mectrol.jpg", width=220)
+    st.markdown("### Filtros")
     st.markdown("---")
     
     st.markdown("**📅 Data e Período**")
@@ -651,7 +797,8 @@ with st.sidebar:
     else:
         data_ini, data_fim = None, None
 
-    st.markdown("**🎯 Prioridade Logística**")
+    st.markdown("---")
+    st.markdown("**Prioridade Logística**")
     filtro_prio = []
     if st.checkbox("🔴 1º Expresso São Miguel - Alta", value=True): filtro_prio.append("1_ALTA")
     if st.checkbox("🟡 2º New BigTrans - Média", value=True): filtro_prio.append("2_MEDIA")
@@ -721,11 +868,9 @@ if not df_hist.empty and not ver_todas_datas:
 # PÁGINA: HOME
 # ==========================================
 if pagina == "🏠 Home":
-    # Logo da Mectrol
-    c_logo, c_tit, c_btn = st.columns([0.15, 0.7, 0.15])
-    with c_logo: st.image("mectrol.jpg", width=80)
+    c_tit, c_btn = st.columns([0.85, 0.15])
     with c_tit: st.title("📊 Painel de Visão Geral")
-    with c_btn: 
+    with c_btn:
         if st.button("🔄 Atualizar"): st.cache_data.clear(); st.rerun()
 
     # --- SEGURANÇA: MENSAGEM SE NÃO CARREGAR ---
@@ -955,6 +1100,7 @@ elif pagina == "🔍 Inspeção":
     
     col_insp, _ = st.columns([1, 2])
     with col_insp:
+        aviso_campo_faltante("inspetor", "Selecione o Inspetor!")
         inspetor_selecionado = st.selectbox("👷 Inspetor:", ["", "Alexandre", "Pedro", "Lilian", "Ygor"])
     st.markdown("---")
 
@@ -976,6 +1122,7 @@ elif pagina == "🔍 Inspeção":
             if st.session_state.op_anterior != op_num:
                 resetar_classificacoes()
                 st.session_state.op_anterior = op_num
+                st.session_state.campos_faltantes = set()  # Limpar avisos ao mudar OP
             
             dados = df_cli[df_cli['OP'].astype(str) == op_num].iloc[0]
 
@@ -1015,20 +1162,6 @@ elif pagina == "🔍 Inspeção":
             med_sobra = extrair_medidas_peca(desc)
             isento_tam = verificar_isencao_tamanho(desc)[1]
 
-            st.markdown("---")
-            ct1, ct2, ct3, ct4 = st.columns(4)
-            data_prod = ct1.date_input("Data Produção", date.today(), format="DD/MM/YYYY")
-            
-            # Data de chegada: validar que é hoje ou anterior
-            data_cheg_permitida = date.today()
-            data_cheg = ct2.date_input("Data Chegada", value=date.today(), format="DD/MM/YYYY")
-            if data_cheg > data_cheg_permitida:
-                st.error("❌ Data de chegada não pode ser no futuro!")
-                data_cheg = data_cheg_permitida
-            
-            ct3.text_input("Hora", key="hora_entrada_key", on_change=formatar_hora_automatica)
-            ct4.text_input("Líder", value="Pedro Miguel", disabled=True)
-
             qtd_prod = max(1, qtd_padrao)
 
             st.markdown("---")
@@ -1042,14 +1175,42 @@ elif pagina == "🔍 Inspeção":
                     pc1, pc2 = st.columns([3, 2])
                     pc1.markdown(f"📦 **Peça {st.session_state.peca_atual} de {qtd_prod}**")
                     with pc2:
-                        btn_proxima_peca = st.button("➡️ Salvar e Ir para Próxima" if not eh_ultima_peca else "✅ Finalizar", 
-                                                    use_container_width=True, type="primary")
+                        btn_proxima_peca = st.button(
+                            "➡️ Salvar e Ir para Próxima" if not eh_ultima_peca else "✅ Finalizar",
+                            use_container_width=True,
+                            type="primary",
+                        )
+            
+            # Data e Hora - individual para cada peça em modo multi-peça
+            st.markdown("---")
+            ct1, ct2, ct3, ct4 = st.columns(4)
+            if eh_multiplo:
+                data_prod = ct1.date_input("Data Produção", date.today(), format="DD/MM/YYYY", key=f"data_prod_{st.session_state.peca_atual}")
+            else:
+                data_prod = ct1.date_input("Data Produção", date.today(), format="DD/MM/YYYY")
+            
+            # Data de chegada: validar que é hoje ou anterior
+            data_cheg_permitida = date.today()
+            if eh_multiplo:
+                data_cheg = ct2.date_input("Data Chegada", value=date.today(), format="DD/MM/YYYY", key=f"data_cheg_{st.session_state.peca_atual}")
+            else:
+                data_cheg = ct2.date_input("Data Chegada", value=date.today(), format="DD/MM/YYYY")
+            if data_cheg > data_cheg_permitida:
+                st.error("❌ Data de chegada não pode ser no futuro!")
+                data_cheg = data_cheg_permitida
+            
+            if eh_multiplo:
+                ct3.text_input("Hora", key=f"hora_entrada_{st.session_state.peca_atual}", on_change=formatar_hora_automatica, args=(f"hora_entrada_{st.session_state.peca_atual}",))
+            else:
+                ct3.text_input("Hora", key="hora_entrada_key", on_change=formatar_hora_automatica, args=("hora_entrada_key",))
+            ct4.text_input("Líder", value="Pedro Miguel", disabled=True)
             
             cm1, cm2, cm3 = st.columns([1, 1.5, 1])
             cm1.markdown("#### Medições")
             cm2.radio("Escolha o Relógio:", ["Centesimal", "Milesimal"], horizontal=True, key="tipo_relogio_key", on_change=ajustar_casas_relogio)
             
             # Código de Castanha - com suporte a múltiplas peças
+            aviso_campo_faltante("cod_cas", "Preencha o Código Castanha!")
             if eh_multiplo:
                 cod_cas_key = f"cod_cas_{st.session_state.peca_atual}"
                 cod_cas = cm3.text_input("Cód. Castanha", key=cod_cas_key)
@@ -1103,11 +1264,13 @@ elif pagina == "🔍 Inspeção":
             
             # ⚠️ IMPORTANTE: Atualizar a session_state ANTES de renderizar os checkboxes
             # Isso garante que o Streamlit não sobrescreva com valores antigos
-            for chave_checkbox in ['fuso_ret', 'fuso_ret_ad', 'cast_ret', 'cast_ret_ad', 'fuso_lam', 'fuso_lam_ad', 'cast_lam', 'cast_lam_ad', 'guia', 'bloco']:
-                # Mapear chave do checkbox para chave do resultado da classificação
-                chave_resultado = 'sel_' + chave_checkbox
-                if chave_resultado in class_auto:
-                    st.session_state[chave_checkbox] = class_auto[chave_resultado]
+            if st.session_state.get("class_auto_op") != op_num:
+                for chave_checkbox in ['fuso_ret', 'fuso_ret_ad', 'cast_ret', 'cast_ret_ad', 'fuso_lam', 'fuso_lam_ad', 'cast_lam', 'cast_lam_ad', 'guia', 'bloco']:
+                    # Mapear chave do checkbox para chave do resultado da classificação
+                    chave_resultado = 'sel_' + chave_checkbox
+                    if chave_resultado in class_auto:
+                        st.session_state[chave_checkbox] = class_auto[chave_resultado]
+                st.session_state.class_auto_op = op_num
             
             # RETIFICADOS
             st.markdown("**🔧 RETIFICADOS:**")
@@ -1151,26 +1314,54 @@ elif pagina == "🔍 Inspeção":
 
             st.markdown("---")
             st.markdown("##### ⚠️ Refugo / RNC")
-            qtd_ref = st.number_input("Qtd Reprovada", 0)
+            tipo_ref_limit = st.session_state.get("tipo_ref", "")
+            extra_morte = 0
+            if "MORTE" in str(tipo_ref_limit):
+                extra_morte = st.number_input("Qtd Extra (MORTE)", min_value=0, max_value=10, key="extra_morte")
+            max_refugo = int(qtd_prod) + int(extra_morte) if "MORTE" in str(tipo_ref_limit) else int(qtd_prod)
+            r1, r2 = st.columns([2, 3])
+            qtd_ref = r1.number_input("Qtd Reprovada", min_value=0, max_value=max_refugo, value=0, key="qtd_ref")
+
+            aviso_campo_faltante("tipo_rnc", "Selecione o Tipo RNC (Fuso/Castanha ou Guia/Bloco)!")
+            # Tipo da RNC (nao permitir misturar grupos)
+            bloqueia_guia_bloco = is_fuso
+            bloqueia_fuso_cast = is_guia or is_bloco
+            r2.markdown("**Tipo RNC**")
+            c1, c2, c3, c4 = r2.columns(4)
+            rnc_fuso = c1.checkbox("Fuso", key="rnc_fuso", disabled=bloqueia_fuso_cast)
+            rnc_castanha = c2.checkbox("Castanha", key="rnc_castanha", disabled=bloqueia_fuso_cast)
+            rnc_guia = c3.checkbox("Guia", key="rnc_guia", disabled=bloqueia_guia_bloco)
+            rnc_bloco = c4.checkbox("Bloco", key="rnc_bloco", disabled=bloqueia_guia_bloco)
+
+            grupo_fc = rnc_fuso or rnc_castanha
+            grupo_gb = rnc_guia or rnc_bloco
+            if grupo_fc and grupo_gb:
+                st.error("❌ Não pode selecionar Fuso/Castanha junto com Guia/Bloco!")
             
             tipo_ref = None; maq_ref = ""; oper_ref = ""; obs_insp = ""; obs_colab = ""; sobra = 0
             analise = False
             motivos = {}
+            causas = {}
             
             if qtd_ref > 0:
                 st.error("🔴 Detalhes do Refugo")
                 cr1, cr2, cr3 = st.columns([2, 1, 1])
-                tipo_ref = cr1.radio("Tipo", ["RETRABALHO", "MORTE COM SOBRA", "MORTE SEM SOBRA"], horizontal=True)
-                analise = cr1.checkbox("Em Análise")
-                maq_ref = cr2.selectbox("Máquina", LISTA_MAQUINAS)
-                oper_ref = cr3.selectbox("Torneiro", LISTA_TORNEIROS)
+                aviso_campo_faltante("tipo_ref", "Selecione o Tipo de Refugo!")
+                tipo_ref = cr1.radio("Tipo", ["RETRABALHO", "MORTE COM SOBRA", "MORTE SEM SOBRA"], horizontal=True, key="tipo_ref")
+                analise = cr1.checkbox("Em Análise", key="analise_ref")
+                aviso_campo_faltante("maq_ref", "Selecione a Máquina!")
+                maq_ref = cr2.selectbox("Máquina", LISTA_MAQUINAS, key="maq_ref")
+                aviso_campo_faltante("oper_ref", "Selecione o Torneiro!")
+                oper_ref = cr3.selectbox("Torneiro", LISTA_TORNEIROS, key="oper_ref")
                 
                 if "MORTE" in str(tipo_ref):
                     st.info(f"Sobra sugerida: {med_sobra}mm")
-                    sobra = st.number_input("Medida Real Sobra (mm)", value=med_sobra)
+                    sobra = st.number_input("Medida Real Sobra (mm)", value=med_sobra, key="sobra_ref")
                 
-                obs_insp = st.text_area("Avaria (Inspetor):", placeholder="O que foi encontrado...")
-                obs_colab = st.text_area("Causa (Colaborador):", placeholder="Justificativa...")
+                aviso_campo_faltante("obs_insp", "Preencha a Avaria (Inspetor)!")
+                obs_insp = st.text_area("Avaria (Inspetor):", placeholder="O que foi encontrado...", key="obs_insp")
+                aviso_campo_faltante("obs_colab", "Preencha a Causa (Colaborador)!")
+                obs_colab = st.text_area("Causa (Colaborador):", placeholder="Justificativa...", key="obs_colab")
 
                 # MOSTRAR 2 QUADRANTES DE REFUGO
                 st.markdown("---")
@@ -1206,14 +1397,13 @@ elif pagina == "🔍 Inspeção":
                             if len(df_refugo.columns) >= 32:
                                 cols_x_af = df_refugo.columns[23:32]
                                 for col in cols_x_af:
-                                    st.checkbox(col, key=f"xaf_{col}")
+                                    causas[col] = st.checkbox(col, key=f"xaf_{col}")
                         else:
                             st.write("Arquivo não encontrado")
                     except Exception as e:
                         st.write(f"Erro: {str(e)}")
 
             # Botão para peça única (single-peça) - colocado ao lado do header
-            if not eh_multiplo:            # Botão para peça única (single-peça) - colocado ao lado do header
             if not eh_multiplo:
                 pc1, pc2 = st.columns([3, 2])
                 pc1.write("")
@@ -1224,9 +1414,17 @@ elif pagina == "🔍 Inspeção":
             if btn_proximo:
                 erros = []
                 avisos = []
+                # Resetar campos faltantes
+                st.session_state.campos_faltantes = set()
+                
+                if eh_multiplo:
+                    hora_entrada = st.session_state.get(f"hora_entrada_{st.session_state.peca_atual}", "")
+                else:
+                    hora_entrada = st.session_state.get("hora_entrada_key", "")
                 
                 # Validação 1: Inspetor obrigatório
                 if not inspetor_selecionado: 
+                    st.session_state.campos_faltantes.add("inspetor")
                     erros.append("Selecione o Inspetor!")
                 
                 # Validação 2: Castanha - verificar se é fuso sem castanha (padrão R##-)
@@ -1234,11 +1432,38 @@ elif pagina == "🔍 Inspeção":
                 eh_fuso_sem_castanha = any(re.search(p, desc) for p in padroes_fuso_sem_castanha)
                 
                 if not cod_cas and not eh_fuso_sem_castanha:
+                    st.session_state.campos_faltantes.add("cod_cas")
                     erros.append("Código Castanha obrigatório!")
+
+                # Validações específicas quando há RNC
+                if qtd_ref > 0:
+                    if not tipo_ref:
+                        st.session_state.campos_faltantes.add("tipo_ref")
+                        erros.append("Selecione o Tipo de Refugo!")
+                    if not maq_ref:
+                        st.session_state.campos_faltantes.add("maq_ref")
+                        erros.append("Selecione a Máquina!")
+                    if not oper_ref:
+                        st.session_state.campos_faltantes.add("oper_ref")
+                        erros.append("Selecione o Torneiro!")
+                    if not (rnc_fuso or rnc_castanha or rnc_guia or rnc_bloco):
+                        st.session_state.campos_faltantes.add("tipo_rnc")
+                        erros.append("Selecione o Tipo RNC (Fuso/Castanha ou Guia/Bloco)!")
+                    if (rnc_fuso or rnc_castanha) and (rnc_guia or rnc_bloco):
+                        erros.append("Não pode misturar Fuso/Castanha com Guia/Bloco!")
+                    if not str(obs_insp).strip():
+                        st.session_state.campos_faltantes.add("obs_insp")
+                        erros.append("Preencha a Avaria (Inspetor)!")
+                    if not str(obs_colab).strip():
+                        st.session_state.campos_faltantes.add("obs_colab")
+                        erros.append("Preencha a Causa (Colaborador)!")
+                    if not str(hora_entrada).strip():
+                        st.session_state.campos_faltantes.add("hora_entrada")
+                        erros.append("Preencha a Hora de Entrada!")
                 
                 # Validação 3: Se for FUSO, precisa ter medição em ESQ ou DIR (ou ambos)
                 fuso_selecionado = sel_fuso_ret or sel_fuso_ret_ad or sel_fuso_lam or sel_fuso_lam_ad
-                if fuso_selecionado:
+                if fuso_selecionado and qtd_ref <= 0:
                     if eh_multiplo:
                         tem_esq = bool(st.session_state.get(f"emp_e_{st.session_state.peca_atual}")) or \
                                   bool(st.session_state.get(f"bat_e_{st.session_state.peca_atual}"))
@@ -1269,17 +1494,103 @@ elif pagina == "🔍 Inspeção":
                     for e in erros: st.error(e)
                     if avisos:
                         for av in avisos: st.warning(av)
+                    st.rerun()  # Recarregar para mostrar avisos piscantes
                 else:
                     if avisos:
                         for av in avisos: st.warning(av)
-                    
+
+                    descricao_item = dados.get('Descrição do Item', '')
+                    codigo_item = dados.get('Codigo', dados.get('Código Item', dados.get('Código', dados.get('Item', ''))))
+                    pedido = dados.get('Pedido', '')
+                    transportadora = dados.get('Transportadora', '')
+                    hora_saida = datetime.now().strftime("%H:%M")
+                    data_producao = data_prod.strftime("%d/%m/%Y") if data_prod else ""
+                    data_chegada = data_cheg.strftime("%d/%m/%Y") if data_cheg else ""
+                    aprovado = max(qtd_prod - qtd_ref, 0)
+                    reprovado = qtd_ref
+
+                    if eh_multiplo:
+                        bat_esq = st.session_state.get(f"bat_e_{st.session_state.peca_atual}") or ""
+                        bat_dir = st.session_state.get(f"bat_d_{st.session_state.peca_atual}") or ""
+                        emp_esq = st.session_state.get(f"emp_e_{st.session_state.peca_atual}") or ""
+                        emp_dir = st.session_state.get(f"emp_d_{st.session_state.peca_atual}") or ""
+                    else:
+                        bat_esq = st.session_state.get("bat_e") or ""
+                        bat_dir = st.session_state.get("bat_d") or ""
+                        emp_esq = st.session_state.get("emp_e") or ""
+                        emp_dir = st.session_state.get("emp_d") or ""
+
+                    mapa_causas = {
+                        "Medida não conforme o projeto": "Medida não conforme",
+                        "Usinagem não conforme o projeto": "Usinagem não conforme",
+                        "Acabamento Ruim": "Acabamento Ruim",
+                        "Peça fora de concentricidade": "Concentricidade",
+                        "Peça craterizada": "Craterizada",
+                        "Estética (aparência)": "Estética",
+                        "Rebarba": "Rebarba",
+                        "Faltou usinar a chaveta": "Faltou Chaveta",
+                        "Desenho Errado": "Desenho Errado",
+                    }
+                    causas_db = {mapa_causas.get(k, k): v for k, v in causas.items()}
+                    marca = lambda v: "X" if v else ""
+
                     novo = {
                         'Data Registro': date.today().strftime("%d/%m/%Y"),
+                        'Hora Saída': hora_saida,
                         'Inspetor': inspetor_selecionado,
-                        'OP': op_num, 'Cliente': dados['Cliente'], 'Qtd Total': qtd_prod,
-                        'Reprovado': qtd_ref, 'Tipo Refugo': tipo_ref if qtd_ref > 0 else '',
-                        'Código Castanha': cod_cas,
-                        'Obs': f"{obs_insp} | {obs_colab}",
+                        'Inspetor Responsável': "Pedro Miguel",
+                        'Data Chegada': data_chegada,
+                        'Hora Entrada': hora_entrada or "",
+                        'Data Produção': data_producao,
+                        'OP': op_num,
+                        'Cliente': dados['Cliente'],
+                        'Descrição': descricao_item,
+                        'Transportadora': transportadora,
+                        'Pedido': pedido,
+                        'Codigo': codigo_item,
+                        'Qtd Total': qtd_prod,
+                        'Peças produzidas': qtd_prod,
+                        'Aprovado': aprovado,
+                        'Reprovado': reprovado,
+                        'Tipo Refugo': tipo_ref if qtd_ref > 0 else "",
+                        'Sobra Medida 1': sobra if qtd_ref > 0 and sobra else "",
+                        'Sobra Medida 2': "",
+                        'Maquina': maq_ref if qtd_ref > 0 else "",
+                        'Operador': oper_ref if qtd_ref > 0 else "",
+                        'Cód. Castanha': cod_cas or "",
+                        'Bat. Esq': bat_esq,
+                        'Bat. Dir': bat_dir,
+                        'Emp. Esq': emp_esq,
+                        'Emp. Dir': emp_dir,
+                        'Obs': f"{obs_insp} | {obs_colab}" if qtd_ref > 0 else "",
+                        'Status': "Finalizado",
+                        'Aprovação Especial': "SIM" if liberado else "NAO",
+                        'Fuso Retificado': marca(sel_fuso_ret),
+                        'Fuso Retificado Adaptado': marca(sel_fuso_ret_ad),
+                        'Castanha Retificada Adaptada': marca(sel_cast_ret_ad),
+                        'Fuso Laminado': marca(sel_fuso_lam),
+                        'Fuso Laminado PRECISÃO': "",
+                        'Fuso Laminado Adaptado': marca(sel_fuso_lam_ad),
+                        'Castanha Laminada Adaptada': marca(sel_cast_lam_ad),
+                        'Guia': marca(sel_guia),
+                        'Bloco': marca(sel_bloco),
+                        'Usinagem': marca(motivos.get('Usinagem', False)),
+                        'Inspeção': marca(motivos.get('Inspeção', False)),
+                        'Desenho': marca(motivos.get('Desenho', False)),
+                        'Programação CNC': marca(motivos.get('Programação CNC', False)),
+                        'Produção': marca(motivos.get('Produção', False)),
+                        'Gerar op': marca(motivos.get('Gerar op - instrução para corte errado', False)),
+                        'PCP': marca(motivos.get('PCP', False)),
+                        'Medida não conforme': marca(causas_db.get('Medida não conforme', False)),
+                        'Usinagem não conforme': marca(causas_db.get('Usinagem não conforme', False)),
+                        'Acabamento Ruim': marca(causas_db.get('Acabamento Ruim', False)),
+                        'Concentricidade': marca(causas_db.get('Concentricidade', False)),
+                        'Craterizada': marca(causas_db.get('Craterizada', False)),
+                        'Estética': marca(causas_db.get('Estética', False)),
+                        'Rebarba': marca(causas_db.get('Rebarba', False)),
+                        'Faltou Chaveta': marca(causas_db.get('Faltou Chaveta', False)),
+                        'Desenho Errado': marca(causas_db.get('Desenho Errado', False)),
+                        'Código Castanha': cod_cas or "",
                         # registrar também motivos para histórico
                         'Motivo_Usinagem': motivos.get('Usinagem', False),
                         'Motivo_Medida': motivos.get('Medida', False),
@@ -1294,16 +1605,16 @@ elif pagina == "🔍 Inspeção":
                             'bat_e': st.session_state.get(f"bat_e_{st.session_state.peca_atual}"),
                             'bat_d': st.session_state.get(f"bat_d_{st.session_state.peca_atual}"),
                             'emp_d': st.session_state.get(f"emp_d_{st.session_state.peca_atual}"),
+                            'data_prod': data_producao,
+                            'data_cheg': data_chegada,
+                            'hora_entrada': hora_entrada,
                         }
                         
                         if eh_ultima_peca:
                             # Última peça - salvar no banco de dados
                             df_novo = pd.DataFrame([novo])
                             try:
-                                if not os.path.exists(ARQUIVO_HISTORICO): df_novo.to_excel(ARQUIVO_HISTORICO, index=False)
-                                else:
-                                    antigo = pd.read_excel(ARQUIVO_HISTORICO)
-                                    pd.concat([antigo, df_novo], ignore_index=True).to_excel(ARQUIVO_HISTORICO, index=False)
+                                salvar_no_banco(df_novo, nao_conforme=(qtd_ref > 0))
                             except Exception as e:
                                 st.error(f"Erro ao salvar no histórico: {e}")
                             
@@ -1311,7 +1622,7 @@ elif pagina == "🔍 Inspeção":
                             st.success(f"✅ 🎉 **Inspeção concluída!** Todas as {qtd_prod} peças foram inspecionadas com sucesso!")
                             st.write("**Resumo das peças inspecionadas:**")
                             for num_peca, dados_peca in st.session_state.pecas_inspecionadas.items():
-                                st.write(f"  • Peça {num_peca}: Cód. Castanha = {dados_peca['cod_castanha']}")
+                                st.write(f"  • Peça {num_peca}: Cód. Castanha = {dados_peca['cod_castanha']} | Data Prod: {dados_peca['data_prod']} | Hora: {dados_peca['hora_entrada']}")
                             st.session_state.peca_atual = 1
                             st.session_state.pecas_inspecionadas = {}
                             st.cache_data.clear()  # Limpar cache para atualizar lista no Home com verde
@@ -1319,16 +1630,25 @@ elif pagina == "🔍 Inspeção":
                         else:
                             # Ir para próxima peça
                             st.session_state.peca_atual += 1
+                            # limpar dados de refugo para a próxima peça
+                            for k in [
+                                "qtd_ref", "tipo_ref", "analise_ref", "maq_ref", "oper_ref",
+                                "sobra_ref", "obs_insp", "obs_colab", "extra_morte",
+                                "rnc_fuso", "rnc_castanha", "rnc_guia", "rnc_bloco"
+                            ]:
+                                if k in st.session_state:
+                                    del st.session_state[k]
+                            for k in list(st.session_state.keys()):
+                                if k.startswith("mot_") or k.startswith("xaf_"):
+                                    del st.session_state[k]
+                            st.session_state.campos_faltantes = set()  # Limpar avisos ao avançar peça
                             st.info(f"✅ Peça {st.session_state.peca_atual - 1} salva! Carregando peça {st.session_state.peca_atual}...")
                             st.rerun()
                     else:
                         # Peça única - salvar normalmente
                         df_novo = pd.DataFrame([novo])
                         try:
-                            if not os.path.exists(ARQUIVO_HISTORICO): df_novo.to_excel(ARQUIVO_HISTORICO, index=False)
-                            else:
-                                antigo = pd.read_excel(ARQUIVO_HISTORICO)
-                                pd.concat([antigo, df_novo], ignore_index=True).to_excel(ARQUIVO_HISTORICO, index=False)
+                            salvar_no_banco(df_novo, nao_conforme=(qtd_ref > 0))
                             
                             msg = "Salvo com sucesso!"
                             if qtd_ref > 0:
