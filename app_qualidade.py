@@ -1893,6 +1893,51 @@ elif pagina == "📊 Indicadores":
     else:
         try:
             st.markdown("### 📦 Peças Inspecionadas")
+            
+            # CSS para cards customizados
+            st.markdown("""
+            <style>
+            .card-indicador {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                border-radius: 10px;
+                padding: 20px;
+                text-align: center;
+                color: white;
+                margin: 5px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            }
+            .card-indicador h3 {
+                font-size: 18px;
+                font-weight: bold;
+                margin: 0 0 10px 0;
+            }
+            .card-indicador .valor {
+                font-size: 36px;
+                font-weight: bold;
+                margin: 0;
+            }
+            .card-total {
+                background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+                border-radius: 10px;
+                padding: 20px;
+                text-align: center;
+                color: white;
+                margin: 5px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            }
+            .card-total h3 {
+                font-size: 18px;
+                font-weight: bold;
+                margin: 0 0 10px 0;
+            }
+            .card-total .valor {
+                font-size: 36px;
+                font-weight: bold;
+                margin: 0;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+            
             with st.spinner("Carregando..."):
                 df_lanc = pd.read_excel(arquivo_dash, sheet_name='Lançamentos', header=None)
                 valores = df_lanc.iloc[298, 2:10].tolist()
@@ -1901,19 +1946,49 @@ elif pagina == "📊 Indicadores":
                 cols = st.columns(4)
                 for i in range(4):
                     v = int(valores[i]) if pd.notna(valores[i]) else 0
-                    cols[i].metric(f"{meses[i]}", f"{v} peças")
+                    with cols[i]:
+                        st.markdown(f"""
+                        <div class="card-indicador">
+                            <h3>{meses[i]}</h3>
+                            <p class="valor">{v}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
                 
                 cols2 = st.columns(4)
                 for i in range(4):
                     v = int(valores[i+4]) if pd.notna(valores[i+4]) else 0
-                    cols2[i].metric(f"{meses[i+4]}", f"{v} peças")
+                    with cols2[i]:
+                        st.markdown(f"""
+                        <div class="card-indicador">
+                            <h3>{meses[i+4]}</h3>
+                            <p class="valor">{v}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
                 
                 total = sum([int(v) if pd.notna(v) else 0 for v in valores])
                 st.markdown("---")
                 t1, t2, t3 = st.columns(3)
-                t1.metric("Total", f"{total} peças")
-                t2.metric("Média Mensal", f"{total//8} peças")
-                t3.metric("Período", "8 meses")
+                with t1:
+                    st.markdown(f"""
+                    <div class="card-total">
+                        <h3>Total</h3>
+                        <p class="valor">{total}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                with t2:
+                    st.markdown(f"""
+                    <div class="card-total">
+                        <h3>Média Mensal</h3>
+                        <p class="valor">{total//8}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                with t3:
+                    st.markdown(f"""
+                    <div class="card-total">
+                        <h3>Período</h3>
+                        <p class="valor">8 meses</p>
+                    </div>
+                    """, unsafe_allow_html=True)
                 
                 st.markdown("#### Evolução Mensal")
                 df_g = pd.DataFrame({'Mês': meses, 'Peças': [int(v) if pd.notna(v) else 0 for v in valores]})
