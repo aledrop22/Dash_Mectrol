@@ -1976,7 +1976,8 @@ elif pagina == "📊 Indicadores":
             media = total // 8 if total > 0 else 0
             melhor_tipo = tipos_pecas[valores_num.index(max(valores_num))] if valores_num else "-"
             
-            kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+            # Primeira linha de KPIs
+            kpi1, kpi2 = st.columns(2)
             with kpi1:
                 st.markdown(f"""
                 <div class="kpi-card">
@@ -1991,6 +1992,9 @@ elif pagina == "📊 Indicadores":
                     <p class="value">{media}</p>
                 </div>
                 """, unsafe_allow_html=True)
+            
+            # Segunda linha de KPIs
+            kpi3, kpi4 = st.columns(2)
             with kpi3:
                 st.markdown(f"""
                 <div class="kpi-card">
@@ -2008,32 +2012,85 @@ elif pagina == "📊 Indicadores":
             
             st.markdown("---")
             
-            # PEÇAS INSPECIONADAS POR TIPO
-            st.markdown("### 📦 Peças Inspecionadas por Tipo")
+            # PEÇAS INSPECIONADAS POR TIPO - RETIFICADOS
+            st.markdown("### 🔧 Peças Retificadas")
+            # Linha 1
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown(f"""
+                <div class="metric-card">
+                    <h3>{tipos_pecas[0]}</h3>
+                    <p class="value">{valores_num[0]}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            with col2:
+                st.markdown(f"""
+                <div class="metric-card">
+                    <h3>{tipos_pecas[1]}</h3>
+                    <p class="value">{valores_num[1]}</p>
+                </div>
+                """, unsafe_allow_html=True)
             
-            col1, col2, col3, col4 = st.columns(4)
-            for i in range(4):
-                v = valores_num[i]
-                with [col1, col2, col3, col4][i]:
-                    st.markdown(f"""
-                    <div class="metric-card">
-                        <h3>{tipos_pecas[i]}</h3>
-                        <p class="value">{v}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
+            # Linha 2
+            col3, col_vazio1 = st.columns(2)
+            with col3:
+                st.markdown(f"""
+                <div class="metric-card">
+                    <h3>{tipos_pecas[2]}</h3>
+                    <p class="value">{valores_num[2]}</p>
+                </div>
+                """, unsafe_allow_html=True)
             
             st.markdown("<br>", unsafe_allow_html=True)
             
-            col5, col6, col7, col8 = st.columns(4)
-            for i in range(4, 8):
-                v = valores_num[i]
-                with [col5, col6, col7, col8][i-4]:
-                    st.markdown(f"""
-                    <div class="metric-card">
-                        <h3>{tipos_pecas[i]}</h3>
-                        <p class="value">{v}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
+            # PEÇAS LAMINADAS
+            st.markdown("### ⚙️ Peças Laminadas")
+            # Linha 1
+            col4, col5 = st.columns(2)
+            with col4:
+                st.markdown(f"""
+                <div class="metric-card">
+                    <h3>{tipos_pecas[3]}</h3>
+                    <p class="value">{valores_num[3]}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            with col5:
+                st.markdown(f"""
+                <div class="metric-card">
+                    <h3>{tipos_pecas[4]}</h3>
+                    <p class="value">{valores_num[4]}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # Linha 2
+            col6, col_vazio2 = st.columns(2)
+            with col6:
+                st.markdown(f"""
+                <div class="metric-card">
+                    <h3>{tipos_pecas[5]}</h3>
+                    <p class="value">{valores_num[5]}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # GUIAS E BLOCOS
+            st.markdown("### 🔩 Guias e Blocos")
+            col7, col8 = st.columns(2)
+            with col7:
+                st.markdown(f"""
+                <div class="metric-card">
+                    <h3>{tipos_pecas[6]}</h3>
+                    <p class="value">{valores_num[6]}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            with col8:
+                st.markdown(f"""
+                <div class="metric-card">
+                    <h3>{tipos_pecas[7]}</h3>
+                    <p class="value">{valores_num[7]}</p>
+                </div>
+                """, unsafe_allow_html=True)
             
             st.markdown("---")
             
@@ -2041,50 +2098,56 @@ elif pagina == "📊 Indicadores":
             if mostrar_evolucao or mostrar_comparacao:
                 st.markdown("### 📈 Análise Visual")
                 
-                graph_col1, graph_col2 = st.columns(2)
-                
                 if mostrar_comparacao:
-                    with graph_col1:
-                        st.markdown("#### 🔵 Comparação por Tipo de Peça")
-                        df_grafico = pd.DataFrame({
-                            'Tipo': tipos_pecas,
-                            'Quantidade': valores_num
-                        })
-                        fig_bar = px.bar(
-                            df_grafico, 
-                            x='Quantidade', 
-                            y='Tipo',
-                            orientation='h',
-                            color='Quantidade',
-                            color_continuous_scale='Viridis',
-                            text='Quantidade'
-                        )
-                        fig_bar.update_layout(
-                            showlegend=False,
-                            height=500,
-                            margin=dict(l=20, r=20, t=10, b=20),
-                            xaxis_title="Quantidade de Peças",
-                            yaxis_title=""
-                        )
-                        fig_bar.update_traces(textposition='outside')
-                        st.plotly_chart(fig_bar, use_container_width=True)
+                    st.markdown("#### 🔵 Comparação por Tipo de Peça")
+                    df_grafico = pd.DataFrame({
+                        'Tipo': tipos_pecas,
+                        'Quantidade': valores_num
+                    })
+                    fig_bar = px.bar(
+                        df_grafico, 
+                        x='Quantidade', 
+                        y='Tipo',
+                        orientation='h',
+                        color='Quantidade',
+                        color_continuous_scale='Viridis',
+                        text='Quantidade'
+                    )
+                    fig_bar.update_layout(
+                        showlegend=False,
+                        height=600,
+                        margin=dict(l=20, r=20, t=20, b=20),
+                        xaxis_title="Quantidade de Peças",
+                        yaxis_title="",
+                        font=dict(size=14)
+                    )
+                    fig_bar.update_traces(textposition='outside', textfont_size=14)
+                    st.plotly_chart(fig_bar, use_container_width=True)
                 
                 if mostrar_evolucao:
-                    with graph_col2:
-                        st.markdown("#### 🟢 Distribuição por Categoria")
-                        fig_pie = px.pie(
-                            df_grafico,
-                            values='Quantidade',
-                            names='Tipo',
-                            hole=0.4,
-                            color_discrete_sequence=px.colors.sequential.RdBu
+                    st.markdown("#### 🟢 Distribuição por Categoria")
+                    fig_pie = px.pie(
+                        df_grafico,
+                        values='Quantidade',
+                        names='Tipo',
+                        hole=0.4,
+                        color_discrete_sequence=px.colors.sequential.RdBu
+                    )
+                    fig_pie.update_layout(
+                        height=600,
+                        margin=dict(l=20, r=20, t=20, b=20),
+                        showlegend=True,
+                        font=dict(size=14),
+                        legend=dict(
+                            orientation="v",
+                            yanchor="middle",
+                            y=0.5,
+                            xanchor="left",
+                            x=1.05
                         )
-                        fig_pie.update_layout(
-                            height=500,
-                            margin=dict(l=20, r=20, t=10, b=20),
-                            showlegend=True
-                        )
-                        st.plotly_chart(fig_pie, use_container_width=True)
+                    )
+                    fig_pie.update_traces(textfont_size=14)
+                    st.plotly_chart(fig_pie, use_container_width=True)
             
             st.markdown("---")
             
