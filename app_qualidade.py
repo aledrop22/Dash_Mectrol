@@ -1898,56 +1898,70 @@ elif pagina == "📊 Indicadores":
             st.markdown("""
             <style>
             .metric-card {
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                border-radius: 15px;
-                padding: 25px 15px;
+                background: #f0f2f6;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                padding: 12px 10px;
                 text-align: center;
-                color: white;
-                box-shadow: 0 8px 16px rgba(0,0,0,0.15);
-                transition: transform 0.2s;
-                height: 140px;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-            }
-            .metric-card:hover {
-                transform: translateY(-5px);
-                box-shadow: 0 12px 24px rgba(0,0,0,0.2);
+                color: #333;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                height: auto;
+                min-height: 80px;
+                margin-bottom: 8px;
             }
             .metric-card h3 {
-                font-size: 16px;
-                font-weight: 700;
-                margin: 0 0 12px 0;
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
+                font-size: 13px;
+                font-weight: 600;
+                margin: 0 0 8px 0;
+                color: #555;
+                line-height: 1.2;
             }
             .metric-card .value {
-                font-size: 42px;
-                font-weight: 900;
+                font-size: 28px;
+                font-weight: 700;
                 margin: 0;
-                text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+                color: #1f77b4;
             }
             .kpi-card {
-                background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-                border-radius: 15px;
-                padding: 25px;
+                background: #e3f2fd;
+                border: 1px solid #90caf9;
+                border-radius: 8px;
+                padding: 12px 10px;
                 text-align: center;
-                color: white;
-                box-shadow: 0 8px 16px rgba(0,0,0,0.15);
-                height: 140px;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
+                color: #333;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                height: auto;
+                min-height: 80px;
+                margin-bottom: 8px;
             }
             .kpi-card h3 {
-                font-size: 18px;
-                font-weight: 700;
-                margin: 0 0 12px 0;
+                font-size: 13px;
+                font-weight: 600;
+                margin: 0 0 8px 0;
+                color: #0d47a1;
+                line-height: 1.2;
             }
             .kpi-card .value {
-                font-size: 48px;
-                font-weight: 900;
+                font-size: 32px;
+                font-weight: 700;
                 margin: 0;
+                color: #1976d2;
+            }
+            
+            @media (max-width: 768px) {
+                .metric-card h3, .kpi-card h3 {
+                    font-size: 11px;
+                }
+                .metric-card .value {
+                    font-size: 24px;
+                }
+                .kpi-card .value {
+                    font-size: 28px;
+                }
+                .metric-card, .kpi-card {
+                    min-height: 70px;
+                    padding: 10px 8px;
+                }
             }
             </style>
             """, unsafe_allow_html=True)
@@ -1970,7 +1984,7 @@ elif pagina == "📊 Indicadores":
                 mostrar_comparacao = st.checkbox("Mostrar Comparação por Tipo", True)
             
             # KPIs PRINCIPAIS
-            st.markdown("### 📊 KPIs Principais")
+            st.markdown("#### 📊 KPIs Principais")
             valores_num = [int(v) if pd.notna(v) else 0 for v in valores]
             total = sum(valores_num)
             media = total // 8 if total > 0 else 0
@@ -2013,7 +2027,7 @@ elif pagina == "📊 Indicadores":
             st.markdown("---")
             
             # PEÇAS INSPECIONADAS POR TIPO - RETIFICADOS
-            st.markdown("### 🔧 Peças Retificadas")
+            st.markdown("#### 🔧 Peças Retificadas")
             # Linha 1
             col1, col2 = st.columns(2)
             with col1:
@@ -2041,10 +2055,8 @@ elif pagina == "📊 Indicadores":
                 </div>
                 """, unsafe_allow_html=True)
             
-            st.markdown("<br>", unsafe_allow_html=True)
-            
             # PEÇAS LAMINADAS
-            st.markdown("### ⚙️ Peças Laminadas")
+            st.markdown("#### ⚙️ Peças Laminadas")
             # Linha 1
             col4, col5 = st.columns(2)
             with col4:
@@ -2072,10 +2084,8 @@ elif pagina == "📊 Indicadores":
                 </div>
                 """, unsafe_allow_html=True)
             
-            st.markdown("<br>", unsafe_allow_html=True)
-            
             # GUIAS E BLOCOS
-            st.markdown("### 🔩 Guias e Blocos")
+            st.markdown("#### 🔩 Guias e Blocos")
             col7, col8 = st.columns(2)
             with col7:
                 st.markdown(f"""
@@ -2099,7 +2109,7 @@ elif pagina == "📊 Indicadores":
                 st.markdown("### 📈 Análise Visual")
                 
                 if mostrar_comparacao:
-                    st.markdown("#### 🔵 Comparação por Tipo de Peça")
+                    st.markdown("#### Comparação por Tipo")
                     df_grafico = pd.DataFrame({
                         'Tipo': tipos_pecas,
                         'Quantidade': valores_num
@@ -2115,17 +2125,17 @@ elif pagina == "📊 Indicadores":
                     )
                     fig_bar.update_layout(
                         showlegend=False,
-                        height=600,
-                        margin=dict(l=20, r=20, t=20, b=20),
+                        height=450,
+                        margin=dict(l=20, r=20, t=10, b=20),
                         xaxis_title="Quantidade de Peças",
                         yaxis_title="",
-                        font=dict(size=14)
+                        font=dict(size=12)
                     )
-                    fig_bar.update_traces(textposition='outside', textfont_size=14)
+                    fig_bar.update_traces(textposition='outside', textfont_size=12)
                     st.plotly_chart(fig_bar, use_container_width=True)
                 
                 if mostrar_evolucao:
-                    st.markdown("#### 🟢 Distribuição por Categoria")
+                    st.markdown("#### Distribuição por Categoria")
                     fig_pie = px.pie(
                         df_grafico,
                         values='Quantidade',
@@ -2134,10 +2144,10 @@ elif pagina == "📊 Indicadores":
                         color_discrete_sequence=px.colors.sequential.RdBu
                     )
                     fig_pie.update_layout(
-                        height=600,
-                        margin=dict(l=20, r=20, t=20, b=20),
+                        height=400,
+                        margin=dict(l=20, r=20, t=10, b=20),
                         showlegend=True,
-                        font=dict(size=14),
+                        font=dict(size=12),
                         legend=dict(
                             orientation="v",
                             yanchor="middle",
@@ -2146,7 +2156,7 @@ elif pagina == "📊 Indicadores":
                             x=1.05
                         )
                     )
-                    fig_pie.update_traces(textfont_size=14)
+                    fig_pie.update_traces(textfont_size=11)
                     st.plotly_chart(fig_pie, use_container_width=True)
             
             st.markdown("---")
