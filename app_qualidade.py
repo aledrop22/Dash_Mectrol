@@ -760,7 +760,7 @@ if 'banco_normalizado' not in st.session_state:
 # ==========================================
 # INTERFACE - NAVEGAÇÃO NO TOPO
 # ==========================================
-nav_col1, nav_col2, nav_col3, nav_col4 = st.columns(4)
+nav_col1, nav_col2, nav_col3, nav_col4, nav_col5 = st.columns(5)
 if nav_col1.button("🏠 Home", use_container_width=True, type="secondary"):
     st.session_state.pagina = "🏠 Home"
 if nav_col2.button("🔍 Inspeção", use_container_width=True, type="secondary"):
@@ -769,6 +769,8 @@ if nav_col3.button("📦 Pré Carga", use_container_width=True, type="secondary"
     st.session_state.pagina = "📦 Pré Carga"
 if nav_col4.button("♻️ Análise Refugo", use_container_width=True, type="secondary"):
     st.session_state.pagina = "♻️ Análise Refugo"
+if nav_col5.button("📊 Indicadores", use_container_width=True, type="secondary"):
+    st.session_state.pagina = "📊 Indicadores"
 
 st.markdown("---")
 pagina = st.session_state.pagina
@@ -1879,6 +1881,84 @@ elif pagina == "♻️ Análise Refugo":
 
 
 
-elif pagina == "📦 Pré Carga":
+elif pagina == "� Indicadores":
+    st.title("📊 Indicadores da Qualidade")
+    st.markdown("Acompanhamento do desempenho diário e mensal da qualidade")
+    st.markdown("---")
+    
+    # Carregar dados do DASH_MENSAL
+    arquivo_dash = '3.1_DASH_MENSAL_01_26.xlsx'
+    
+    if not os.path.exists(arquivo_dash):
+        st.error("⚠️ Arquivo 3.1_DASH_MENSAL_01_26.xlsx não encontrado!")
+    else:
+        try:
+            # === SEÇÃO 1: PEÇAS INSPECIONADAS (Linha 299, colunas C-J) ===
+            st.markdown("### 📦 Peças Inspecionadas - Mensal")
+            
+            # Ler linha 299 da aba Lançamentos
+            df_lancamentos = pd.read_excel(arquivo_dash, sheet_name='Lançamentos', header=None)
+            valores_pecas = df_lancamentos.iloc[298, 2:10].tolist()  # Linha 299, colunas C-J
+            
+            # Labels dos meses (assumindo colunas C-J = últimos 8 meses)
+            meses_labels = ['Mês 1', 'Mês 2', 'Mês 3', 'Mês 4', 'Mês 5', 'Mês 6', 'Mês 7', 'Mês 8']
+            
+            # Cards com métricas
+            cols_cards = st.columns(4)
+            for i in range(4):
+                with cols_cards[i]:
+                    st.metric(
+                        label=f"📅 {meses_labels[i]}",
+                        value=f"{int(valores_pecas[i]) if pd.notna(valores_pecas[i]) else 0} peças"
+                    )
+            
+            cols_cards2 = st.columns(4)
+            for i in range(4, 8):
+                with cols_cards2[i-4]:
+                    st.metric(
+                        label=f"📅 {meses_labels[i]}",
+                        value=f"{int(valores_pecas[i]) if pd.notna(valores_pecas[i]) else 0} peças"
+                    )
+            
+            # Gráfico de barras
+            st.markdown("####  Evolução Mensal")
+            df_grafico = pd.DataFrame({
+                'Mês': meses_labels,
+                'Peças': [int(v) if pd.notna(v) else 0 for v in valores_pecas]
+            })
+            st.bar_chart(df_grafico.set_index('Mês'))
+            
+            st.markdown("---")
+            
+            # === SEÇÃO 2: INDICADORES DE CONFIGURAÇÃO ===
+            st.markdown("### ⚙️ Indicadores de Configuração")
+            
+            try:
+                df_config = pd.read_excel(arquivo_dash, sheet_name='CONFIGURAÇÃO ', header=None)
+                
+                # Exibir primeiras linhas como preview (ajustar conforme estrutura real)
+                st.dataframe(df_config.head(20), use_container_width=True)
+                
+            except Exception as e:
+                st.warning(f"Não foi possível carregar indicadores de CONFIGURAÇÃO: {e}")
+            
+            st.markdown("---")
+            
+            # === SEÇÃO 3: INDICADORES DE USINAGEM ===
+            st.markdown("### 🔧 Indicadores de Usinagem")
+            
+            try:
+                df_usinagem = pd.read_excel(arquivo_dash, sheet_name='Indicadores Usinagem', header=None)
+                
+                # Exibir primeiras linhas como preview (ajustar conforme estrutura real)
+                st.dataframe(df_usinagem.head(20), use_container_width=True)
+                
+            except Exception as e:
+                st.warning(f"Não foi possível carregar Indicadores Usinagem: {e}")
+            
+        except Exception as e:
+            st.error(f"Erro ao carregar dados: {e}")
+
+elif pagina == "�📦 Pré Carga":
     st.title("📦 Pré Carga")
     st.info("Módulo em desenvolvimento...")
