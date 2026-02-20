@@ -5,6 +5,8 @@ import os
 import re
 from openpyxl import load_workbook
 from openpyxl.styles import Alignment, Font
+import plotly.express as px
+import plotly.graph_objects as go
 
 st.set_page_config(page_title="Mectrol Qualidade", layout="wide", page_icon="mectrol.jpg")
 
@@ -1881,137 +1883,231 @@ elif pagina == "♻️ Análise Refugo":
 
 
 elif pagina == "📊 Indicadores":
-    st.title("📊 Indicadores da Qualidade")
-    st.markdown("Acompanhamento do desempenho diário e mensal da qualidade")
+    st.title("📊 Dashboard de Indicadores da Qualidade")
+    st.markdown("Acompanhamento em tempo real do desempenho da qualidade")
     st.markdown("---")
     
     arquivo_dash = '3.1_DASH_MENSAL_01_26.xlsx'
     
     if not os.path.exists(arquivo_dash):
-        st.error(f"Arquivo não encontrado: {arquivo_dash}")
-        st.info("Faça upload do arquivo 3.1_DASH_MENSAL_01_26.xlsx")
+        st.error(f"📁 Arquivo não encontrado: {arquivo_dash}")
+        st.info("💡 Faça upload do arquivo 3.1_DASH_MENSAL_01_26.xlsx")
     else:
         try:
-            st.markdown("### 📦 Peças Inspecionadas")
-            
-            # CSS para cards customizados
+            # CSS Moderno
             st.markdown("""
             <style>
-            .card-indicador {
+            .metric-card {
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                border-radius: 10px;
-                padding: 20px;
+                border-radius: 15px;
+                padding: 25px 15px;
                 text-align: center;
                 color: white;
-                margin: 5px;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+                transition: transform 0.2s;
+                height: 140px;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
             }
-            .card-indicador h3 {
-                font-size: 18px;
-                font-weight: bold;
-                margin: 0 0 10px 0;
+            .metric-card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 12px 24px rgba(0,0,0,0.2);
             }
-            .card-indicador .valor {
-                font-size: 36px;
-                font-weight: bold;
+            .metric-card h3 {
+                font-size: 16px;
+                font-weight: 700;
+                margin: 0 0 12px 0;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            .metric-card .value {
+                font-size: 42px;
+                font-weight: 900;
                 margin: 0;
+                text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
             }
-            .card-total {
+            .kpi-card {
                 background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-                border-radius: 10px;
-                padding: 20px;
+                border-radius: 15px;
+                padding: 25px;
                 text-align: center;
                 color: white;
-                margin: 5px;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+                height: 140px;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
             }
-            .card-total h3 {
+            .kpi-card h3 {
                 font-size: 18px;
-                font-weight: bold;
-                margin: 0 0 10px 0;
+                font-weight: 700;
+                margin: 0 0 12px 0;
             }
-            .card-total .valor {
-                font-size: 36px;
-                font-weight: bold;
+            .kpi-card .value {
+                font-size: 48px;
+                font-weight: 900;
                 margin: 0;
             }
             </style>
             """, unsafe_allow_html=True)
             
-            with st.spinner("Carregando..."):
-                df_lanc = pd.read_excel(arquivo_dash, sheet_name='Lançamentos', header=None)
-                valores = df_lanc.iloc[298, 2:10].tolist()
-                meses = ['Fuso Retificado', 'Fuso Retificado Adaptado', 'Castanha Retificada Adaptada', 'Fuso Laminado', 'Castanha Laminada Adaptada', 'Fuso Laminado Adaptado', 'Guia', 'Bloco']
+            # Carregar dados
+            df_lanc = pd.read_excel(arquivo_dash, sheet_name='Lançamentos', header=None)
+            valores = df_lanc.iloc[298, 2:10].tolist()
+            tipos_pecas = ['Fuso Retificado', 'Fuso Retificado Adaptado', 'Castanha Retificada Adaptada', 
+                          'Fuso Laminado', 'Castanha Laminada Adaptada', 'Fuso Laminado Adaptado', 'Guia', 'Bloco']
+            
+            # SIDEBAR - Filtros
+            with st.sidebar:
+                st.markdown("### 🎛️ Filtros")
+                visualizacao = st.selectbox(
+                    "Tipo de Visualização",
+                    ["📊 Visão Geral", "📈 Gráficos Detalhados", "📋 Tabelas Completas"]
+                )
                 
-                cols = st.columns(4)
-                for i in range(4):
-                    v = int(valores[i]) if pd.notna(valores[i]) else 0
-                    with cols[i]:
-                        st.markdown(f"""
-                        <div class="card-indicador">
-                            <h3>{meses[i]}</h3>
-                            <p class="valor">{v}</p>
-                        </div>
-                        """, unsafe_allow_html=True)
-                
-                cols2 = st.columns(4)
-                for i in range(4):
-                    v = int(valores[i+4]) if pd.notna(valores[i+4]) else 0
-                    with cols2[i]:
-                        st.markdown(f"""
-                        <div class="card-indicador">
-                            <h3>{meses[i+4]}</h3>
-                            <p class="valor">{v}</p>
-                        </div>
-                        """, unsafe_allow_html=True)
-                
-                total = sum([int(v) if pd.notna(v) else 0 for v in valores])
-                st.markdown("---")
-                t1, t2, t3 = st.columns(3)
-                with t1:
-                    st.markdown(f"""
-                    <div class="card-total">
-                        <h3>Total</h3>
-                        <p class="valor">{total}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                with t2:
-                    st.markdown(f"""
-                    <div class="card-total">
-                        <h3>Média Mensal</h3>
-                        <p class="valor">{total//8}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                with t3:
-                    st.markdown(f"""
-                    <div class="card-total">
-                        <h3>Período</h3>
-                        <p class="valor">8 meses</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                st.markdown("#### Evolução Mensal")
-                df_g = pd.DataFrame({'Mês': meses, 'Peças': [int(v) if pd.notna(v) else 0 for v in valores]})
-                st.bar_chart(df_g.set_index('Mês'))
+                mostrar_evolucao = st.checkbox("Mostrar Evolução Temporal", True)
+                mostrar_comparacao = st.checkbox("Mostrar Comparação por Tipo", True)
+            
+            # KPIs PRINCIPAIS
+            st.markdown("### 📊 KPIs Principais")
+            valores_num = [int(v) if pd.notna(v) else 0 for v in valores]
+            total = sum(valores_num)
+            media = total // 8 if total > 0 else 0
+            melhor_tipo = tipos_pecas[valores_num.index(max(valores_num))] if valores_num else "-"
+            
+            kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+            with kpi1:
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <h3>🎯 Total Inspecionado</h3>
+                    <p class="value">{total}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            with kpi2:
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <h3>📅 Média Mensal</h3>
+                    <p class="value">{media}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            with kpi3:
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <h3>⏱️ Período</h3>
+                    <p class="value">8</p>
+                </div>
+                """, unsafe_allow_html=True)
+            with kpi4:
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <h3>🏆 Maior Volume</h3>
+                    <p class="value">{max(valores_num)}</p>
+                </div>
+                """, unsafe_allow_html=True)
             
             st.markdown("---")
-            st.markdown("### ⚙️ Configuração")
-            try:
-                df_cfg = pd.read_excel(arquivo_dash, sheet_name='CONFIGURAÇÃO ', header=None)
-                st.dataframe(df_cfg.head(30), use_container_width=True)
-            except Exception as e:
-                st.warning(f"Erro: {e}")
+            
+            # PEÇAS INSPECIONADAS POR TIPO
+            st.markdown("### 📦 Peças Inspecionadas por Tipo")
+            
+            col1, col2, col3, col4 = st.columns(4)
+            for i in range(4):
+                v = valores_num[i]
+                with [col1, col2, col3, col4][i]:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <h3>{tipos_pecas[i]}</h3>
+                        <p class="value">{v}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            col5, col6, col7, col8 = st.columns(4)
+            for i in range(4, 8):
+                v = valores_num[i]
+                with [col5, col6, col7, col8][i-4]:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <h3>{tipos_pecas[i]}</h3>
+                        <p class="value">{v}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
             
             st.markdown("---")
-            st.markdown("### 🔧 Indicadores Usinagem")
-            try:
-                df_usin = pd.read_excel(arquivo_dash, sheet_name='Indicadores Usinagem', header=None)
-                st.dataframe(df_usin.head(30), use_container_width=True)
-            except Exception as e:
-                st.warning(f"Erro: {e}")
+            
+            # GRÁFICOS INTERATIVOS
+            if mostrar_evolucao or mostrar_comparacao:
+                st.markdown("### 📈 Análise Visual")
+                
+                graph_col1, graph_col2 = st.columns(2)
+                
+                if mostrar_comparacao:
+                    with graph_col1:
+                        st.markdown("#### 🔵 Comparação por Tipo de Peça")
+                        df_grafico = pd.DataFrame({
+                            'Tipo': tipos_pecas,
+                            'Quantidade': valores_num
+                        })
+                        fig_bar = px.bar(
+                            df_grafico, 
+                            x='Quantidade', 
+                            y='Tipo',
+                            orientation='h',
+                            color='Quantidade',
+                            color_continuous_scale='Viridis',
+                            text='Quantidade'
+                        )
+                        fig_bar.update_layout(
+                            showlegend=False,
+                            height=500,
+                            margin=dict(l=20, r=20, t=10, b=20),
+                            xaxis_title="Quantidade de Peças",
+                            yaxis_title=""
+                        )
+                        fig_bar.update_traces(textposition='outside')
+                        st.plotly_chart(fig_bar, use_container_width=True)
+                
+                if mostrar_evolucao:
+                    with graph_col2:
+                        st.markdown("#### 🟢 Distribuição por Categoria")
+                        fig_pie = px.pie(
+                            df_grafico,
+                            values='Quantidade',
+                            names='Tipo',
+                            hole=0.4,
+                            color_discrete_sequence=px.colors.sequential.RdBu
+                        )
+                        fig_pie.update_layout(
+                            height=500,
+                            margin=dict(l=20, r=20, t=10, b=20),
+                            showlegend=True
+                        )
+                        st.plotly_chart(fig_pie, use_container_width=True)
+            
+            st.markdown("---")
+            
+            # TABELAS DETALHADAS (EXPANSÍVEIS)
+            if visualizacao == "📋 Tabelas Completas":
+                with st.expander("⚙️ Configuração - Ver Detalhes", expanded=False):
+                    try:
+                        df_cfg = pd.read_excel(arquivo_dash, sheet_name='CONFIGURAÇÃO ', header=None)
+                        st.dataframe(df_cfg, use_container_width=True, height=400)
+                    except Exception as e:
+                        st.error(f"Erro ao carregar Configuração: {e}")
+                
+                with st.expander("🔧 Indicadores de Usinagem - Ver Detalhes", expanded=False):
+                    try:
+                        df_usin = pd.read_excel(arquivo_dash, sheet_name='Indicadores Usinagem', header=None)
+                        st.dataframe(df_usin, use_container_width=True, height=400)
+                    except Exception as e:
+                        st.error(f"Erro ao carregar Indicadores Usinagem: {e}")
+            
         except Exception as e:
-            st.error(f"Erro ao carregar: {e}")
-            st.exception(e)
+            st.error(f"❌ Erro ao carregar dashboard: {e}")
+            with st.expander("🐛 Detalhes do Erro"):
+                st.exception(e)
 
 elif pagina == "�📦 Pré Carga":
     st.title("📦 Pré Carga")
