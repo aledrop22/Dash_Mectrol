@@ -1887,13 +1887,6 @@ elif pagina == "📊 Indicadores":
     
     arquivo_dash = '3.1_DASH_MENSAL_01_26.xlsx'
     
-    with st.expander("🔍 Debug", expanded=False):
-        st.write(f"Dir: {os.getcwd()}")
-        st.write(f"Arquivo existe: {os.path.exists(arquivo_dash)}")
-        if not os.path.exists(arquivo_dash):
-            arquivos = [f for f in os.listdir('.') if f.endswith('.xlsx')]
-            st.write("Excel files:", arquivos)
-    
     if not os.path.exists(arquivo_dash):
         st.error(f"Arquivo não encontrado: {arquivo_dash}")
         st.info("Faça upload do arquivo 3.1_DASH_MENSAL_01_26.xlsx")
@@ -1902,9 +1895,8 @@ elif pagina == "📊 Indicadores":
             st.markdown("### 📦 Peças Inspecionadas")
             with st.spinner("Carregando..."):
                 df_lanc = pd.read_excel(arquivo_dash, sheet_name='Lançamentos', header=None)
-                st.success(f"Carregado: {df_lanc.shape[0]} linhas")
                 valores = df_lanc.iloc[298, 2:10].tolist()
-                meses = ['Jun/25', 'Jul/25', 'Ago/25', 'Set/25', 'Out/25', 'Nov/25', 'Dez/25', 'Jan/26']
+                meses = ['Fuso Retificado', 'Fuso Retificado Adaptado', 'Castanha Retificada Adaptada', 'Fuso Laminado', 'Castanha Laminada Adaptada', 'Fuso Laminado Adaptado', 'Guia', 'Bloco']
                 
                 cols = st.columns(4)
                 for i in range(4):
@@ -1931,7 +1923,6 @@ elif pagina == "📊 Indicadores":
             st.markdown("### ⚙️ Configuração")
             try:
                 df_cfg = pd.read_excel(arquivo_dash, sheet_name='CONFIGURAÇÃO ', header=None)
-                st.success(f"Carregado: {df_cfg.shape}")
                 st.dataframe(df_cfg.head(30), use_container_width=True)
             except Exception as e:
                 st.warning(f"Erro: {e}")
@@ -1940,7 +1931,6 @@ elif pagina == "📊 Indicadores":
             st.markdown("### 🔧 Indicadores Usinagem")
             try:
                 df_usin = pd.read_excel(arquivo_dash, sheet_name='Indicadores Usinagem', header=None)
-                st.success(f"Carregado: {df_usin.shape}")
                 st.dataframe(df_usin.head(30), use_container_width=True)
             except Exception as e:
                 st.warning(f"Erro: {e}")
