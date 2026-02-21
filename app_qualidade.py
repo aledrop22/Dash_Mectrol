@@ -2243,17 +2243,29 @@ elif pagina == "🔧 Indicadores Usinagem":
             """, unsafe_allow_html=True)
             
             # Carregar dados de Indicadores Usinagem - Linha 28 (índice 27)
-            df_usin = pd.read_excel(arquivo_dash, sheet_name='Indicadores Usinagem', header=None)
+            # Usar openpyxl com data_only=True para obter valores calculados
+            wb = load_workbook(arquivo_dash, data_only=True)
+            ws = wb['Indicadores Usinagem']
             
-            # Linha 28, colunas B, C, D (indices 1, 2, 3)
-            indicador_a = df_usin.iloc[27, 1]  # B28
-            indicador_b = df_usin.iloc[27, 2]  # C28
-            indicador_c = df_usin.iloc[27, 3]  # D28
+            # Linha 28, colunas B, C, D
+            # B28 (coluna 2): Vazio/None
+            # C28 (coluna 3): Valor calculado
+            # D28 (coluna 4): Valor calculado
             
-            # Nomes dos indicadores
-            nome_ind_a = df_usin.iloc[26, 1]  # B27
-            nome_ind_b = df_usin.iloc[26, 2]  # C27
-            nome_ind_c = df_usin.iloc[26, 3]  # D27
+            valor_b28 = ws.cell(28, 2).value  # B28
+            valor_c28 = ws.cell(28, 3).value  # C28
+            valor_d28 = ws.cell(28, 4).value  # D28
+            
+            # Pegar rótulos das linhas anteriores
+            rotulo_b27 = ws.cell(27, 2).value  # B27
+            rotulo_c25 = ws.cell(25, 3).value  # C25 - "USINAGEM"
+            rotulo_c27 = ws.cell(27, 3).value  # C27 - "USINAGEM"  
+            rotulo_d25 = ws.cell(25, 4).value  # D25 - "OUTROS"
+            rotulo_d27 = ws.cell(27, 4).value  # D27 - "OUTROS"
+            
+            # Valores de linha 26 para contexto
+            valor_c26 = ws.cell(26, 3).value  # Quantidade
+            valor_d26 = ws.cell(26, 4).value  # Quantidade
             
             st.markdown("#### 📊 Indicadores da Linha 28")
             
@@ -2263,26 +2275,36 @@ elif pagina == "🔧 Indicadores Usinagem":
                 st.markdown(f"""
                 <div class="indicator-card">
                     <p class="indicator-title">Coluna B</p>
-                    <p class="indicator-value">{indicador_a if pd.notna(indicador_a) else '—'}</p>
-                    <p class="indicator-label">{nome_ind_a if pd.notna(nome_ind_a) else 'Sem dado'}</p>
+                    <p class="indicator-value">{valor_b28 if valor_b28 is not None else '—'}</p>
+                    <p class="indicator-label">{rotulo_b27 if rotulo_b27 is not None else 'Vazio'}</p>
                 </div>
                 """, unsafe_allow_html=True)
             
             with col2:
+                # Formatar o valor percentual
+                if valor_c28 is not None:
+                    perc_c = f"{valor_c28*100:.2f}%"
+                else:
+                    perc_c = "—"
                 st.markdown(f"""
                 <div class="indicator-card">
                     <p class="indicator-title">Coluna C</p>
-                    <p class="indicator-value">{indicador_b if pd.notna(indicador_b) else '—'}</p>
-                    <p class="indicator-label">{nome_ind_b if pd.notna(nome_ind_b) else 'Sem dado'}</p>
+                    <p class="indicator-value">{perc_c}</p>
+                    <p class="indicator-label">{rotulo_c27 if rotulo_c27 else 'USINAGEM'} ({valor_c26 if valor_c26 else 0} peças)</p>
                 </div>
                 """, unsafe_allow_html=True)
             
             with col3:
+                # Formatar o valor percentual
+                if valor_d28 is not None:
+                    perc_d = f"{valor_d28*100:.2f}%"
+                else:
+                    perc_d = "—"
                 st.markdown(f"""
                 <div class="indicator-card">
                     <p class="indicator-title">Coluna D</p>
-                    <p class="indicator-value">{indicador_c if pd.notna(indicador_c) else '—'}</p>
-                    <p class="indicator-label">{nome_ind_c if pd.notna(nome_ind_c) else 'Sem dado'}</p>
+                    <p class="indicator-value">{perc_d}</p>
+                    <p class="indicator-label">{rotulo_d27 if rotulo_d27 else 'OUTROS'} ({valor_d26 if valor_d26 else 0} peças)</p>
                 </div>
                 """, unsafe_allow_html=True)
             
@@ -2291,13 +2313,20 @@ elif pagina == "🔧 Indicadores Usinagem":
             # Tabela completa para referência
             st.markdown("#### 📋 Dados Completos da Linha 28")
             with st.expander("Ver todos os dados", expanded=False):
-                dados_linha_28 = df_usin.iloc[27, 0:10].to_frame().T
-                st.dataframe(dados_linha_28, use_container_width=True)
+                # Coletar dados da linha 28
+                dados_linha_28_dict = {}
+                for col in range(1, 11):
+                    col_letter = chr(64 + col)  # A=65, B=66, etc
+                    dados_linha_28_dict[col_letter] = ws.cell(28, col).value
+                dados_df = pd.DataFrame([dados_linha_28_dict])
+                st.dataframe(dados_df, use_container_width=True)
             
             # Contexto
-            st.markdown("#### 📚 Contexto - Linhas 25-35")
+            st.markdown("#### 📚 Contexto - Linhas 25-28 (PEÇAS MORTAS)")
             with st.expander("Ver contexto", expanded=False):
-                contexto = df_usin.iloc[24:35, 0:5]
+                # Ler com pandas para melhor visualização
+                df_context = pd.read_excel(arquivo_dash, sheet_name='Indicadores Usinagem', header=None)
+                contexto = df_context.iloc[24:28, 0:5]  # Linhas 25-28 (índices 24-27)
                 st.dataframe(contexto, use_container_width=True)
                 
         except Exception as e:
