@@ -770,8 +770,13 @@ if nav_col3.button("📦 Pré Carga", use_container_width=True, type="secondary"
     st.session_state.pagina = "📦 Pré Carga"
 if nav_col4.button("♻️ Análise Refugo", use_container_width=True, type="secondary"):
     st.session_state.pagina = "♻️ Análise Refugo"
-if nav_col5.button("📊 Indicadores", use_container_width=True, type="secondary"):
+
+# Segunda linha de navegação
+nav_col6, nav_col7 = st.columns([1, 1])
+if nav_col6.button("📊 Indicadores", use_container_width=True, type="secondary"):
     st.session_state.pagina = "📊 Indicadores"
+if nav_col7.button("🔧 Indicadores Usinagem", use_container_width=True, type="secondary"):
+    st.session_state.pagina = "🔧 Indicadores Usinagem"
 
 st.markdown("---")
 pagina = st.session_state.pagina
@@ -2182,6 +2187,122 @@ elif pagina == "📊 Indicadores":
             with st.expander("🐛 Detalhes do Erro"):
                 st.exception(e)
 
-elif pagina == "�📦 Pré Carga":
+elif pagina == "🔧 Indicadores Usinagem":
+    st.title("🔧 Dashboard de Indicadores de Usinagem")
+    st.markdown("Métricas de desempenho e qualidade da usinagem - Linha 28")
+    st.markdown("---")
+    
+    arquivo_dash = '3.1_DASH_MENSAL_01_26.xlsx'
+    
+    if not os.path.exists(arquivo_dash):
+        st.error(f"📁 Arquivo não encontrado: {arquivo_dash}")
+        st.info("💡 Faça upload do arquivo 3.1_DASH_MENSAL_01_26.xlsx")
+    else:
+        try:
+            # CSS para cards
+            st.markdown("""
+            <style>
+            .indicator-card {
+                background: #f5f5f5;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                padding: 15px;
+                text-align: center;
+                color: #333;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                margin-bottom: 10px;
+            }
+            .indicator-title {
+                font-size: 12px;
+                font-weight: 600;
+                color: #666;
+                margin: 0 0 10px 0;
+                text-transform: uppercase;
+            }
+            .indicator-value {
+                font-size: 36px;
+                font-weight: 700;
+                color: #1976d2;
+                margin: 5px 0;
+            }
+            .indicator-label {
+                font-size: 11px;
+                color: #999;
+                margin: 5px 0 0 0;
+            }
+            
+            @media (max-width: 768px) {
+                .indicator-value {
+                    font-size: 28px;
+                }
+                .indicator-card {
+                    padding: 12px;
+                }
+            }
+            </style>
+            """, unsafe_allow_html=True)
+            
+            # Carregar dados de Indicadores Usinagem - Linha 28 (índice 27)
+            df_usin = pd.read_excel(arquivo_dash, sheet_name='Indicadores Usinagem', header=None)
+            
+            # Linha 28, colunas B, C, D (indices 1, 2, 3)
+            indicador_a = df_usin.iloc[27, 1]  # B28
+            indicador_b = df_usin.iloc[27, 2]  # C28
+            indicador_c = df_usin.iloc[27, 3]  # D28
+            
+            # Nomes dos indicadores
+            nome_ind_a = df_usin.iloc[26, 1]  # B27
+            nome_ind_b = df_usin.iloc[26, 2]  # C27
+            nome_ind_c = df_usin.iloc[26, 3]  # D27
+            
+            st.markdown("#### 📊 Indicadores da Linha 28")
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.markdown(f"""
+                <div class="indicator-card">
+                    <p class="indicator-title">Coluna B</p>
+                    <p class="indicator-value">{indicador_a if pd.notna(indicador_a) else '—'}</p>
+                    <p class="indicator-label">{nome_ind_a if pd.notna(nome_ind_a) else 'Sem dado'}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col2:
+                st.markdown(f"""
+                <div class="indicator-card">
+                    <p class="indicator-title">Coluna C</p>
+                    <p class="indicator-value">{indicador_b if pd.notna(indicador_b) else '—'}</p>
+                    <p class="indicator-label">{nome_ind_b if pd.notna(nome_ind_b) else 'Sem dado'}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col3:
+                st.markdown(f"""
+                <div class="indicator-card">
+                    <p class="indicator-title">Coluna D</p>
+                    <p class="indicator-value">{indicador_c if pd.notna(indicador_c) else '—'}</p>
+                    <p class="indicator-label">{nome_ind_c if pd.notna(nome_ind_c) else 'Sem dado'}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            st.markdown("---")
+            
+            # Tabela completa para referência
+            st.markdown("#### 📋 Dados Completos da Linha 28")
+            with st.expander("Ver todos os dados", expanded=False):
+                dados_linha_28 = df_usin.iloc[27, 0:10].to_frame().T
+                st.dataframe(dados_linha_28, use_container_width=True)
+            
+            # Contexto
+            st.markdown("#### 📚 Contexto - Linhas 25-35")
+            with st.expander("Ver contexto", expanded=False):
+                contexto = df_usin.iloc[24:35, 0:5]
+                st.dataframe(contexto, use_container_width=True)
+                
+        except Exception as e:
+            st.error(f"❌ Erro ao carregar: {e}")
+
+elif pagina == "📦 Pré Carga":
     st.title("📦 Pré Carga")
     st.info("Módulo em desenvolvimento...")
